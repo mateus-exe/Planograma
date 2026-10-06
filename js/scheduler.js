@@ -166,52 +166,57 @@ window.Scheduler = {
       });
 
       if (Array.isArray(tarefa.dias) && tarefa.dias.length > 0) {
-        // Tarefas com dias definidos dividem a duração total igualmente entre
-        // os dias selecionados que ainda cabem no prazo desta semana.
+        // Distribuir em sessões de pelo menos 30 minutos e usar apenas dias
+        // selecionados com um espaço contínuo suficiente para cada sessão.
         const diasDaTarefa = diasPossiveis.filter(dataStr =>
           tarefa.dias.includes(TimeUtils.getDayOfWeek(dataStr))
-        );
-        const minutosBase = diasDaTarefa.length > 0
-          ? Math.floor(tarefa.duracao / diasDaTarefa.length)
-          : 0;
-        let minutosExtras = diasDaTarefa.length > 0
-          ? tarefa.duracao % diasDaTarefa.length
-          : 0;
-
-        for (const dataStr of diasDaTarefa) {
-          const duracaoDoDia = minutosBase + (minutosExtras > 0 ? 1 : 0);
-          if (minutosExtras > 0) minutosExtras--;
-          if (duracaoDoDia === 0) continue;
-
-          const slotsLivres = this.encontrarSlotsLivres(
+        ).map(dataStr => {
+          const slots = this.encontrarSlotsLivres(
             ocupadosPorDia[dataStr], acordar, dormir, intervaloMinimo
           );
-          let restanteDoDia = duracaoDoDia;
+          return {
+            data: dataStr,
+            slots,
+            maiorSlot: Math.max(0, ...slots.map(slot => slot.duracaoMinutos)),
+            carga: this.calcularMinutosOcupados(ocupadosPorDia[dataStr] || [])
+          };
+        }).filter(dia => dia.maiorSlot > 0)
+          .sort((a, b) => b.maiorSlot - a.maiorSlot || a.carga - b.carga);
 
-          for (const slot of slotsLivres) {
-            if (restanteDoDia <= 0) break;
-            const tempoAlocado = Math.min(restanteDoDia, slot.duracaoMinutos);
-            if (tempoAlocado <= 0) continue;
+        // Não cria sessões minúsculas só para usar todos os dias marcados.
+        // Para tarefas menores que 30 min, mantém uma única sessão.
+        let quantidadeSessoes = Math.min(
+          diasDaTarefa.length,
+          tarefa.duracao >= 30 ? Math.floor(tarefa.duracao / 30) : 1
+        );
 
-            const novoBloco = {
-              data: dataStr,
-              inicioMin: slot.inicioMin,
-              fimMin: slot.inicioMin + tempoAlocado
-            };
-            blocosAlocadosTemp.push(novoBloco);
-            ocupadosPorDia[dataStr].push({ inicio: novoBloco.inicioMin, fim: novoBloco.fimMin });
-            restanteDoDia -= tempoAlocado;
-          }
+        while (quantidadeSessoes > 0) {
+          const minutosBase = Math.floor(tarefa.duracao / quantidadeSessoes);
+          let minutosExtras = tarefa.duracao % quantidadeSessoes;
+          const diasEscolhidos = diasDaTarefa.slice(0, quantidadeSessoes);
+          const distribuicao = diasEscolhidos.map(dia => {
+            const duracao = minutosBase + (minutosExtras > 0 ? 1 : 0);
+            if (minutosExtras > 0) minutosExtras--;
+            return { ...dia, duracao };
+          });
 
-          if (restanteDoDia > 0) {
-            sucessoNaAlocacao = false;
+          if (distribuicao.every(dia => dia.maiorSlot >= dia.duracao)) {
+            distribuicao.forEach(dia => {
+              const slot = dia.slots.find(item => item.duracaoMinutos >= dia.duracao);
+              const novoBloco = {
+                data: dia.data,
+                inicioMin: slot.inicioMin,
+                fimMin: slot.inicioMin + dia.duracao
+              };
+              blocosAlocadosTemp.push(novoBloco);
+              ocupadosPorDia[dia.data].push({ inicio: novoBloco.inicioMin, fim: novoBloco.fimMin });
+            });
+            sucessoNaAlocacao = true;
             break;
           }
-          sucessoNaAlocacao = true;
-        }
 
-        sucessoNaAlocacao = diasDaTarefa.length > 0 && sucessoNaAlocacao &&
-          blocosAlocadosTemp.reduce((soma, bloco) => soma + (bloco.fimMin - bloco.inicioMin), 0) === tarefa.duracao;
+          quantidadeSessoes--;
+        }
 
       } else if (tarefa.divisivel) {
         // Tentar dividir em blocos de no mínimo 30 min ou o tempo restante se for menor
