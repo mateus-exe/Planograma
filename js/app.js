@@ -114,6 +114,9 @@
           if (e.target.closest('#btn-view-diario')) {
             if (window.UI) UI.toggleView('diario');
           }
+          if (e.target.closest('#btn-view-mensal')) {
+            if (window.UI) UI.toggleView('mensal');
+          }
 
           // Exportar dados
           if (e.target.closest('#btn-export-data')) {
