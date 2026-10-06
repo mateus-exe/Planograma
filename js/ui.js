@@ -611,8 +611,12 @@
       const prazo = formData.get('prazo') || '';
       const divisivel = form.querySelector('[name="divisivel"]')?.checked || false;
 
-      if (!nome || duracao < 5) {
-        this.showToast('Preencha todos os campos obrigatórios.', 'warning');
+      if (!nome) {
+        this.showToast('Preencha o nome da tarefa.', 'warning');
+        return false;
+      }
+      if (duracao < 5) {
+        this.showToast('A duração mínima é de 5 minutos.', 'warning');
         return false;
       }
 
@@ -622,6 +626,7 @@
       this.renderTarefas();
       return true;
     },
+
 
     /**
      * Alterna conclusão de tarefa
