@@ -27,7 +27,10 @@
         // 5. Atualizar interface com dados armazenados
         this.refreshAll();
 
-        // 6. Ocultar tela de carregamento
+        // 6. Garantir que o cronograma da semana atual esteja calculado
+        if (window.UI) UI.atualizarCronogramaAutomaticamente();
+
+        // 7. Ocultar tela de carregamento
         this.hideLoadingScreen();
 
         console.log('Planograma inicializado com sucesso.');
@@ -68,6 +71,18 @@
             window.location.hash = targetSection;
           }
 
+          // No cadastro, o botão + retorna aos campos; nas demais telas abre o menu rápido.
+          const quickAddButton = e.target.closest('#fab-add, header [data-modal="quick-add-modal"]');
+          if (quickAddButton) {
+            e.preventDefault();
+            const section = window.UI?.getCurrentSection?.();
+            if (section === 'atividades-fixas' || section === 'tarefas') {
+              UI.scrollToRegistrationForm(section);
+            } else if (window.UI) {
+              UI.openModal('quick-add-modal');
+            }
+          }
+
           // Alternar menu lateral (mobile)
           if (e.target.closest('#menu-toggle') || e.target.closest('.mobile-menu-btn')) {
             if (window.UI) UI.toggleSidebar();
@@ -76,11 +91,6 @@
           // Toggle de tema
           if (e.target.closest('#btn-theme-toggle')) {
             if (window.UI) UI.toggleTheme();
-          }
-
-          // Gerar Cronograma
-          if (e.target.closest('#btn-gerar-cronograma')) {
-            if (window.UI) UI.handleGerarCronograma();
           }
 
           // Exportar/Imprimir Cronograma
@@ -164,11 +174,6 @@
             if (window.UI) UI.handleEditAtividade(e.target);
           }
 
-          // Formulário de Edição de Tarefa
-          if (e.target.id === 'edit-tarefa-form') {
-            if (window.UI) UI.handleEditTarefa(e.target);
-          }
-
           // Formulário de Configurações
           if (e.target.id === 'config-form') {
             if (window.UI) UI.handleSaveConfig(e.target);
@@ -190,6 +195,16 @@
           if (window.UI) UI.showToast('Erro ao processar formulário.', 'error');
         }
       });
+
+      // O envio do formulário de edição é ligado diretamente ao formulário para
+      // garantir que o botão Salvar sempre execute a atualização da tarefa.
+      const editTarefaForm = document.getElementById('edit-tarefa-form');
+      if (editTarefaForm) {
+        editTarefaForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          if (window.UI) UI.handleEditTarefa(e.currentTarget);
+        });
+      }
 
       // === FILTROS E ORDENAÇÃO DE TAREFAS ===
       ['filter-prioridade', 'filter-status', 'sort-tarefas'].forEach(id => {
@@ -223,14 +238,24 @@
       });
 
       // === SINCRONIZAÇÃO ENTRE ABAS ===
-      window.addEventListener('storage', () => {
+      window.addEventListener('storage', (e) => {
+        const dadosDoCronogramaMudaram = [
+          'Planograna_config',
+          'Planograna_atividades_fixas',
+          'Planograna_tarefas'
+        ].includes(e.key);
+        if (dadosDoCronogramaMudaram && window.UI) {
+          UI.atualizarCronogramaAutomaticamente({ render: false });
+        }
         this.refreshAll();
       });
 
       // === ATUALIZAR DADOS QUANDO STORAGE MUDA ===
       if (window.Storage) {
-        Storage.onChange(() => {
-          // Atualizar seção atual se não for a que disparou a mudança
+        Storage.onChange((area) => {
+          if (['config', 'atividades', 'tarefas', 'all'].includes(area) && window.UI) {
+            UI.atualizarCronogramaAutomaticamente();
+          }
         });
       }
     },
@@ -250,7 +275,8 @@
      */
     handleFirstVisit() {
       const config = Storage.getConfig();
-      if (!config.nome && !localStorage.getItem('Planograma_config')) {
+      // Mantém o nome legado da chave para reconhecer configurações existentes.
+      if (!config.nome && !localStorage.getItem('Planograna_config')) {
         // Primeira visita - mostrar modal de boas-vindas
         setTimeout(() => {
           if (window.UI) UI.openModal('welcome-modal');
@@ -283,13 +309,10 @@
         window.location.hash = 'tarefas';
       }
 
-      // Ctrl+G: gerar cronograma
+      // Ctrl+G: abrir o cronograma (gerado automaticamente)
       if (e.ctrlKey && e.key === 'g') {
         e.preventDefault();
         window.location.hash = 'cronograma';
-        setTimeout(() => {
-          if (window.UI) UI.handleGerarCronograma();
-        }, 300);
       }
 
       // Ctrl+1 a 5: navegação rápida
