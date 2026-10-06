@@ -1,4 +1,4 @@
-// === Planograna - Módulo Principal ===
+// === Planograma - Módulo Principal ===
 // Inicializa a aplicação e conecta todos os módulos
 
 (function () {
@@ -10,7 +10,7 @@
      */
     init() {
       try {
-        console.log('Inicializando Planograna...');
+        console.log('Inicializando Planograma...');
 
         // 1. Inicializar módulo UI
         if (window.UI) UI.init();
@@ -30,7 +30,7 @@
         // 6. Ocultar tela de carregamento
         this.hideLoadingScreen();
 
-        console.log('Planograna inicializado com sucesso.');
+        console.log('Planograma inicializado com sucesso.');
       } catch (error) {
         console.error('Erro na inicialização:', error);
         if (window.UI) {
@@ -250,7 +250,7 @@
      */
     handleFirstVisit() {
       const config = Storage.getConfig();
-      if (!config.nome && !localStorage.getItem('Planograna_config')) {
+      if (!config.nome && !localStorage.getItem('Planograma_config')) {
         // Primeira visita - mostrar modal de boas-vindas
         setTimeout(() => {
           if (window.UI) UI.openModal('welcome-modal');
