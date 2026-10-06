@@ -1,6 +1,6 @@
 /**
  * scheduler.js
- * Algoritmo central de geração de cronograma para o 'Planograna'
+ * Algoritmo central de geração de cronograma para o 'Planograma'
  */
 
 /**
