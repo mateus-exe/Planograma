@@ -1,11 +1,11 @@
 /**
  * Módulo de Gerenciamento de Armazenamento Local (localStorage)
- * App: Planograna
+ * App: Planograma
  * Responsável por gerenciar a persistência de dados no navegador.
  */
 
 (function() {
-  const PREFIX = 'Planograna_';
+  const PREFIX = 'Planograma_';
   const KEYS = {
     CONFIG: PREFIX + 'config',
     ATIVIDADES: PREFIX + 'atividades_fixas',
