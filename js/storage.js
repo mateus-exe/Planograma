@@ -5,7 +5,7 @@
  */
 
 (function() {
-  const PREFIX = 'Planograma_';
+  const PREFIX = 'Planograna_';
   const KEYS = {
     CONFIG: PREFIX + 'config',
     ATIVIDADES: PREFIX + 'atividades_fixas',
@@ -30,8 +30,8 @@
     /**
      * Notifica todos os ouvintes registrados sobre uma mudança.
      */
-    _notify() {
-      listeners.forEach(callback => callback());
+    _notify(area) {
+      listeners.forEach(callback => callback(area));
     },
 
     // Funções utilitárias internas
@@ -50,6 +50,7 @@
         localStorage.setItem(key, JSON.stringify(value));
       } catch (e) {
         console.error(`Erro ao salvar ${key} no localStorage:`, e);
+        throw new Error('Não foi possível salvar os dados no navegador. Verifique o espaço disponível e tente novamente.');
       }
     },
 
@@ -84,7 +85,7 @@
         throw new Error('Configuração inválida.');
       }
       this._setItem(KEYS.CONFIG, { ...this.getConfig(), ...config });
-      this._notify();
+      this._notify('config');
     },
 
     // === ATIVIDADES RECORRENTES ===
@@ -113,7 +114,7 @@
       };
       atividades.push(novaAtividade);
       this._setItem(KEYS.ATIVIDADES, atividades);
-      this._notify();
+      this._notify('atividades');
       return novaAtividade;
     },
 
@@ -128,7 +129,7 @@
       if (index !== -1) {
         atividades[index] = { ...atividades[index], ...data };
         this._setItem(KEYS.ATIVIDADES, atividades);
-        this._notify();
+        this._notify('atividades');
       } else {
         throw new Error('Atividade Recorrente não encontrada.');
       }
@@ -143,7 +144,7 @@
       const novaLista = atividades.filter(a => a.id !== id);
       if (atividades.length !== novaLista.length) {
         this._setItem(KEYS.ATIVIDADES, novaLista);
-        this._notify();
+        this._notify('atividades');
       }
     },
 
@@ -179,7 +180,7 @@
       };
       tarefas.push(novaTarefa);
       this._setItem(KEYS.TAREFAS, tarefas);
-      this._notify();
+      this._notify('tarefas');
       return novaTarefa;
     },
 
@@ -194,7 +195,7 @@
       if (index !== -1) {
         tarefas[index] = { ...tarefas[index], ...data };
         this._setItem(KEYS.TAREFAS, tarefas);
-        this._notify();
+        this._notify('tarefas');
       } else {
         throw new Error('Tarefa não encontrada.');
       }
@@ -209,7 +210,7 @@
       const novaLista = tarefas.filter(t => t.id !== id);
       if (tarefas.length !== novaLista.length) {
         this._setItem(KEYS.TAREFAS, novaLista);
-        this._notify();
+        this._notify('tarefas');
       }
     },
 
@@ -223,7 +224,7 @@
       if (index !== -1) {
         tarefas[index].concluida = !tarefas[index].concluida;
         this._setItem(KEYS.TAREFAS, tarefas);
-        this._notify();
+        this._notify('tarefas');
       } else {
         throw new Error('Tarefa não encontrada.');
       }
@@ -251,7 +252,7 @@
         geradoEm: new Date().toISOString()
       };
       this._setItem(KEYS.CRONOGRAMA, novoCronograma);
-      this._notify();
+      this._notify('cronograma');
     },
 
     // === UTILIDADES ===
@@ -287,7 +288,7 @@
         if (Array.isArray(data.tarefas)) this._setItem(KEYS.TAREFAS, data.tarefas);
         if (data.cronograma) this._setItem(KEYS.CRONOGRAMA, data.cronograma);
         
-        this._notify();
+        this._notify('all');
       } catch (e) {
         console.error(e);
         throw new Error('Falha ao importar dados. O formato do arquivo é inválido ou corrompido.');
@@ -302,7 +303,7 @@
       localStorage.removeItem(KEYS.ATIVIDADES);
       localStorage.removeItem(KEYS.TAREFAS);
       localStorage.removeItem(KEYS.CRONOGRAMA);
-      this._notify();
+      this._notify('all');
     }
   };
 
