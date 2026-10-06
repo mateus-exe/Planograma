@@ -65,7 +65,7 @@ function _blocoToVEvent(bloco, dtstamp) {
     const dtEnd = dataStr + 'T' + endStr;
 
     let vevent = "BEGIN:VEVENT\r\n";
-    vevent += `UID:${bloco.id || (Date.now() + Math.random())}@planograna\r\n`;
+    vevent += `UID:${bloco.id || (Date.now() + Math.random())}@Planograma\r\n`;
     vevent += `DTSTAMP:${dtstamp}\r\n`;
     vevent += `DTSTART:${dtStart}\r\n`;
     vevent += `DTEND:${dtEnd}\r\n`;
@@ -109,7 +109,7 @@ window.generateICS = function() {
 
     const dtstamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 
-    let icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Planograna//Cronograma//PT\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n";
+    let icsContent = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Planograma//Cronograma//PT\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n";
 
     // Rastreia UIDs já adicionados para evitar duplicatas em semanas sobrepostas
     const uidsAdicionados = new Set();
