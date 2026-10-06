@@ -165,7 +165,55 @@ window.Scheduler = {
         return cargaA - cargaB;
       });
 
-      if (tarefa.divisivel) {
+      if (Array.isArray(tarefa.dias) && tarefa.dias.length > 0) {
+        // Tarefas com dias definidos dividem a duração total igualmente entre
+        // os dias selecionados que ainda cabem no prazo desta semana.
+        const diasDaTarefa = diasPossiveis.filter(dataStr =>
+          tarefa.dias.includes(TimeUtils.getDayOfWeek(dataStr))
+        );
+        const minutosBase = diasDaTarefa.length > 0
+          ? Math.floor(tarefa.duracao / diasDaTarefa.length)
+          : 0;
+        let minutosExtras = diasDaTarefa.length > 0
+          ? tarefa.duracao % diasDaTarefa.length
+          : 0;
+
+        for (const dataStr of diasDaTarefa) {
+          const duracaoDoDia = minutosBase + (minutosExtras > 0 ? 1 : 0);
+          if (minutosExtras > 0) minutosExtras--;
+          if (duracaoDoDia === 0) continue;
+
+          const slotsLivres = this.encontrarSlotsLivres(
+            ocupadosPorDia[dataStr], acordar, dormir, intervaloMinimo
+          );
+          let restanteDoDia = duracaoDoDia;
+
+          for (const slot of slotsLivres) {
+            if (restanteDoDia <= 0) break;
+            const tempoAlocado = Math.min(restanteDoDia, slot.duracaoMinutos);
+            if (tempoAlocado <= 0) continue;
+
+            const novoBloco = {
+              data: dataStr,
+              inicioMin: slot.inicioMin,
+              fimMin: slot.inicioMin + tempoAlocado
+            };
+            blocosAlocadosTemp.push(novoBloco);
+            ocupadosPorDia[dataStr].push({ inicio: novoBloco.inicioMin, fim: novoBloco.fimMin });
+            restanteDoDia -= tempoAlocado;
+          }
+
+          if (restanteDoDia > 0) {
+            sucessoNaAlocacao = false;
+            break;
+          }
+          sucessoNaAlocacao = true;
+        }
+
+        sucessoNaAlocacao = diasDaTarefa.length > 0 && sucessoNaAlocacao &&
+          blocosAlocadosTemp.reduce((soma, bloco) => soma + (bloco.fimMin - bloco.inicioMin), 0) === tarefa.duracao;
+
+      } else if (tarefa.divisivel) {
         // Tentar dividir em blocos de no mínimo 30 min ou o tempo restante se for menor
         for (const dataStr of diasPossiveis) {
           if (duracaoRestante <= 0) break;
@@ -222,7 +270,10 @@ window.Scheduler = {
       // Finalizando alocação ou revertendo
       if (sucessoNaAlocacao) {
         blocosAlocadosTemp.forEach((alocado, index) => {
-          const sufixoDivisivel = (tarefa.divisivel && blocosAlocadosTemp.length > 1) ? ` (Parte ${index + 1}/${blocosAlocadosTemp.length})` : '';
+          const tarefaDistribuida = Array.isArray(tarefa.dias) && tarefa.dias.length > 0;
+          const sufixoDivisivel = (blocosAlocadosTemp.length > 1 && (tarefa.divisivel || tarefaDistribuida))
+            ? ` (Parte ${index + 1}/${blocosAlocadosTemp.length})`
+            : '';
           
           blocos.push({
             id: `tarefa_${tarefa.id}_${alocado.data}_${index}`,
