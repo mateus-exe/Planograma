@@ -26,6 +26,7 @@
     }
   </script>
   <style>
+    :root { color-scheme: dark; }
     * { scrollbar-width: thin; scrollbar-color: #4b5563 transparent; }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -152,7 +153,7 @@
           </div>
 
           <!-- Cards de Estatísticas -->
-          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 slide-in-up">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">Total de Tarefas</span>
@@ -234,18 +235,18 @@
               <div>
                 <label class="block text-sm font-medium text-slate-300 mb-2">Dias da Semana *</label>
                 <div class="flex flex-wrap gap-2">
-                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="1" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Seg</span></label>
-                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="2" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Ter</span></label>
-                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="3" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qua</span></label>
-                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="4" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qui</span></label>
-                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="5" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sex</span></label>
-                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="6" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sáb</span></label>
-                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="0" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Dom</span></label>
+                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="1" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Seg</span></label>
+                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="2" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Ter</span></label>
+                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="3" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qua</span></label>
+                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="4" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qui</span></label>
+                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="5" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sex</span></label>
+                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="6" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sáb</span></label>
+                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="0" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Dom</span></label>
                 </div>
               </div>
 
               <!-- Horários -->
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-slate-300 mb-1">Horário de Início *</label>
                   <input type="time" name="horaInicio" required
@@ -409,14 +410,14 @@
               <h2 class="text-2xl font-bold text-white">Meu Cronograma</h2>
               <p class="text-slate-400 text-sm mt-1">Visualize e gere seu cronograma semanal</p>
             </div>
-            <div class="flex items-center gap-2">
-              <button id="btn-gerar-cronograma" class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg text-sm transition-colors flex items-center gap-2">
-                <i class="fas fa-magic"></i> Gerar Cronograma
+            <div class="flex flex-wrap items-stretch gap-2 w-full sm:w-auto">
+              <button id="btn-gerar-cronograma" class="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg text-sm transition-colors flex items-center gap-2">
+                <i class="fas fa-magic"></i> <span class="whitespace-nowrap">Gerar Cronograma</span>
               </button>
-              <button id="btn-export-ics" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2">
-                <i class="fas fa-calendar-plus"></i> Exportar (.ics)
+              <button id="btn-export-ics" class="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2">
+                <i class="fas fa-calendar-plus"></i> <span class="whitespace-nowrap">Exportar (.ics)</span>
               </button>
-              <button id="btn-export-cronograma" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2">
+              <button id="btn-export-cronograma" class="flex-1 sm:flex-none justify-center px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2">
                 <i class="fas fa-print"></i> Imprimir
               </button>
             </div>
@@ -427,10 +428,11 @@
             <button id="btn-prev-week" class="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white">
               <i class="fas fa-chevron-left"></i>
             </button>
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-3 flex-1 px-2">
               <button id="btn-view-semanal" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-600 text-white transition-colors">Semanal</button>
               <button id="btn-view-diario" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:text-white transition-colors">Diário</button>
-              <span class="text-sm font-medium text-white mx-2" id="week-label">Semana Atual</span>
+              <button id="btn-view-mensal" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:text-white transition-colors">Mensal</button>
+              <span class="text-sm font-medium text-white mx-1 sm:mx-2 whitespace-nowrap" id="week-label">Semana Atual</span>
               <button id="btn-today" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">Hoje</button>
             </div>
             <button id="btn-next-week" class="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white">
@@ -442,7 +444,7 @@
           <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
             <div id="schedule-grid" class="overflow-x-auto">
               <!-- Cabeçalho dos dias -->
-              <div class="flex border-b border-slate-800 sticky top-0 bg-slate-900 z-10" id="schedule-header">
+              <div class="flex border-b border-slate-800 sticky top-0 bg-slate-900 z-10 min-w-[800px]" id="schedule-header">
                 <div class="flex-shrink-0 p-3 text-xs font-medium text-slate-500 border-r border-slate-800" style="width:80px">Horário</div>
                 <div class="flex-1 grid grid-cols-7">
                   <div class="p-3 text-xs font-medium text-slate-300 text-center border-r border-slate-800/30">Seg</div>
@@ -455,7 +457,7 @@
                 </div>
               </div>
               <!-- Corpo da grade (preenchido via JS) -->
-              <div id="schedule-body" class="relative" style="min-height: 800px;">
+              <div id="schedule-body" class="relative min-w-[800px]" style="min-height: 800px;">
                 <p class="text-slate-500 text-sm text-center py-12">Clique em "Gerar Cronograma" para criar sua agenda semanal.</p>
               </div>
             </div>
@@ -483,7 +485,7 @@
             <!-- Horários -->
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
               <h3 class="font-semibold text-white mb-4"><i class="fas fa-clock mr-2 text-brand-400"></i>Horários</h3>
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label class="block text-sm font-medium text-slate-300 mb-1">Horário de Acordar</label>
                   <input type="time" name="acordar" value="06:00"
@@ -506,13 +508,13 @@
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
               <h3 class="font-semibold text-white mb-4"><i class="fas fa-calendar-week mr-2 text-brand-400"></i>Dias Úteis</h3>
               <div class="flex flex-wrap gap-2">
-                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="1" checked class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Seg</span></label>
-                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="2" checked class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Ter</span></label>
-                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="3" checked class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qua</span></label>
-                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="4" checked class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qui</span></label>
-                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="5" checked class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sex</span></label>
-                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="6" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sáb</span></label>
-                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="0" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Dom</span></label>
+                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="1" checked class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Seg</span></label>
+                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="2" checked class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Ter</span></label>
+                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="3" checked class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qua</span></label>
+                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="4" checked class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qui</span></label>
+                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="5" checked class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sex</span></label>
+                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="6" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sáb</span></label>
+                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="0" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Dom</span></label>
               </div>
             </div>
 
@@ -581,16 +583,16 @@
         <div>
           <label class="block text-sm font-medium text-slate-300 mb-2">Dias da Semana</label>
           <div class="flex flex-wrap gap-2" id="edit-dias-semana">
-            <label class="cursor-pointer"><input type="checkbox" name="dias" value="1" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Seg</span></label>
-            <label class="cursor-pointer"><input type="checkbox" name="dias" value="2" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Ter</span></label>
-            <label class="cursor-pointer"><input type="checkbox" name="dias" value="3" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qua</span></label>
-            <label class="cursor-pointer"><input type="checkbox" name="dias" value="4" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qui</span></label>
-            <label class="cursor-pointer"><input type="checkbox" name="dias" value="5" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sex</span></label>
-            <label class="cursor-pointer"><input type="checkbox" name="dias" value="6" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sáb</span></label>
-            <label class="cursor-pointer"><input type="checkbox" name="dias" value="0" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Dom</span></label>
+            <label class="cursor-pointer"><input type="checkbox" name="dias" value="1" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Seg</span></label>
+            <label class="cursor-pointer"><input type="checkbox" name="dias" value="2" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Ter</span></label>
+            <label class="cursor-pointer"><input type="checkbox" name="dias" value="3" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qua</span></label>
+            <label class="cursor-pointer"><input type="checkbox" name="dias" value="4" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qui</span></label>
+            <label class="cursor-pointer"><input type="checkbox" name="dias" value="5" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sex</span></label>
+            <label class="cursor-pointer"><input type="checkbox" name="dias" value="6" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sáb</span></label>
+            <label class="cursor-pointer"><input type="checkbox" name="dias" value="0" class="hidden peer"><span class="w-12 py-1.5 inline-block text-center rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Dom</span></label>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-slate-300 mb-1">Início *</label>
             <input type="time" name="horaInicio" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
@@ -639,7 +641,7 @@
           <label class="block text-sm font-medium text-slate-300 mb-1">Descrição</label>
           <textarea name="descricao" rows="2" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition resize-none"></textarea>
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-slate-300 mb-1">Prioridade</label>
             <select name="prioridade" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
@@ -659,7 +661,7 @@
             </select>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-slate-300 mb-1">Duração (min) *</label>
             <input type="number" name="duracao" min="5" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
