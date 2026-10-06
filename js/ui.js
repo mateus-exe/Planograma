@@ -1,6 +1,6 @@
 /**
  * ui.js - Módulo de Interface do Usuário
- * Planograna - Controlador de toda a manipulação do DOM e interações visuais
+ * Planograma - Controlador de toda a manipulação do DOM e interações visuais
  */
 
 (function () {
@@ -1118,7 +1118,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Planograna_backup_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `Planograma_backup_${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
       this.showToast('Dados exportados com sucesso!', 'success');
