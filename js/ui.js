@@ -161,6 +161,15 @@
       }
     },
 
+    /** Rola até o formulário de cadastro da seção ativa. */
+    scrollToRegistrationForm(section = currentSection) {
+      const formId = section === 'atividades-fixas' ? 'atividade-form'
+        : section === 'tarefas' ? 'tarefa-form'
+          : null;
+      const form = formId && document.getElementById(formId);
+      if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+
     // === SIDEBAR (Mobile) ===
     toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
@@ -512,6 +521,9 @@
         const emoji = CATEGORIA_EMOJI[t.categoria] || '📌';
         const prazoStr = t.prazo ? formatDate(t.prazo) : '';
         const isOverdue = t.prazo && !t.concluida && t.prazo < toISODate(new Date());
+        const diasStr = Array.isArray(t.dias) && t.dias.length
+          ? t.dias.slice().sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b)).map(d => DIAS_ABREV[d]).join(', ')
+          : '';
         return `
           <div class="task-card bg-slate-900 border border-slate-800 rounded-xl p-4 group ${t.concluida ? 'opacity-60' : ''}" data-id="${t.id}">
             <div class="flex items-start gap-3">
@@ -522,12 +534,12 @@
                 <div class="flex items-center gap-2 flex-wrap">
                   <h4 class="font-medium text-sm ${t.concluida ? 'line-through text-slate-500' : 'text-white'}">${t.nome}</h4>
                   ${getPriorityBadge(t.prioridade)}
-                  ${t.divisivel ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">Divisível</span>' : ''}
                 </div>
                 ${t.descricao ? `<p class="text-xs text-slate-400 mt-1 truncate">${t.descricao}</p>` : ''}
                 <div class="flex items-center gap-4 mt-2 text-xs text-slate-400">
                   <span>${emoji} ${t.categoria ? t.categoria.charAt(0).toUpperCase() + t.categoria.slice(1) : ''}</span>
                   <span><i class="fas fa-clock mr-1"></i>${minutesToReadable(t.duracao || 0)}</span>
+                  ${diasStr ? `<span><i class="fas fa-calendar mr-1"></i>${diasStr}</span>` : ''}
                   ${prazoStr ? `<span class="${isOverdue ? 'text-red-400 font-medium' : ''}"><i class="fas fa-flag mr-1"></i>${prazoStr}${isOverdue ? ' (atrasada)' : ''}</span>` : ''}
                 </div>
               </div>
@@ -554,7 +566,7 @@
       const prioridade = formData.get('prioridade') || 'media';
       const categoria = formData.get('categoria') || 'outro';
       const prazo = formData.get('prazo') || '';
-      const divisivel = form.querySelector('[name="divisivel"]')?.checked || false;
+      const dias = Array.from(form.querySelectorAll('input[name="dias"]:checked'), cb => parseInt(cb.value, 10));
 
       let duracao = parseInt(formData.get('duracao')) || 0;
       const unidade = formData.get('duracao-unidade');
@@ -568,8 +580,12 @@
         this.showToast('A duração mínima é de 5 minutos.', 'warning');
         return false;
       }
+      if (dias.length === 0) {
+        this.showToast('Selecione pelo menos um dia da semana.', 'warning');
+        return false;
+      }
 
-      Storage.addTarefa({ nome, descricao, prioridade, duracao, prazo, categoria, divisivel });
+      Storage.addTarefa({ nome, descricao, prioridade, duracao, prazo, categoria, divisivel: true, dias });
       form.reset();
       this.showToast('Tarefa adicionada com sucesso!', 'success');
       this.renderTarefas();
@@ -592,7 +608,10 @@
       form.querySelector('[name="categoria"]').value = tarefa.categoria;
       form.querySelector('[name="duracao"]').value = tarefa.duracao;
       form.querySelector('[name="prazo"]').value = tarefa.prazo || '';
-      form.querySelector('[name="divisivel"]').checked = tarefa.divisivel || false;
+      const diasSelecionados = Array.isArray(tarefa.dias) && tarefa.dias.length ? tarefa.dias : [1, 2, 3, 4, 5];
+      form.querySelectorAll('input[name="dias"]').forEach(cb => {
+        cb.checked = diasSelecionados.includes(parseInt(cb.value, 10));
+      });
 
       this.openModal('edit-tarefa-modal');
     },
@@ -609,24 +628,30 @@
       const categoria = formData.get('categoria');
       const duracao = parseInt(formData.get('duracao')) || 0;
       const prazo = formData.get('prazo') || '';
-      const divisivel = form.querySelector('[name="divisivel"]')?.checked || false;
+      const dias = Array.from(form.querySelectorAll('input[name="dias"]:checked'), cb => parseInt(cb.value, 10));
 
-      if (!nome) {
-        this.showToast('Preencha o nome da tarefa.', 'warning');
+      if (!nome || duracao < 5) {
+        this.showToast('Preencha todos os campos obrigatórios.', 'warning');
         return false;
       }
-      if (duracao < 5) {
-        this.showToast('A duração mínima é de 5 minutos.', 'warning');
+      if (dias.length === 0) {
+        this.showToast('Selecione pelo menos um dia da semana.', 'warning');
         return false;
       }
 
-      Storage.updateTarefa(id, { nome, descricao, prioridade, categoria, duracao, prazo, divisivel });
+      try {
+        Storage.updateTarefa(id, { nome, descricao, prioridade, categoria, duracao, prazo, divisivel: true, dias });
+      } catch (error) {
+        console.error('Erro ao atualizar tarefa:', error);
+        this.showToast(error.message || 'Não foi possível salvar a tarefa.', 'error');
+        return false;
+      }
+
       this.closeModal('edit-tarefa-modal');
       this.showToast('Tarefa atualizada!', 'success');
       this.renderTarefas();
       return true;
     },
-
 
     /**
      * Alterna conclusão de tarefa
@@ -652,7 +677,10 @@
     // === CRONOGRAMA ===
     renderCronograma() {
       this.updateWeekLabel();
-      const cronograma = Storage.getCronograma();
+      let cronograma = Storage.getCronograma();
+      if (!cronograma || cronograma.semanaInicio !== toISODate(currentWeekStart)) {
+        cronograma = this.atualizarCronogramaAutomaticamente({ render: false });
+      }
       const atividadesFixas = Storage.getAtividadesFixas();
       const config = Storage.getConfig();
 
@@ -914,34 +942,17 @@
       this.renderCronograma();
     },
 
-    /**
-     * Gera o cronograma
-     */
-    handleGerarCronograma() {
+    /** Recalcula e salva o cronograma sem interromper o usuário. */
+    atualizarCronogramaAutomaticamente({ render = true } = {}) {
+      if (!window.Scheduler) return null;
       const config = Storage.getConfig();
       const atividadesFixas = Storage.getAtividadesFixas();
       const tarefas = Storage.getTarefas().filter(t => !t.concluida);
-
-      if (tarefas.length === 0) {
-        this.showToast('Adicione tarefas pendentes para gerar o cronograma.', 'warning');
-        return;
-      }
-
       const semanaInicio = toISODate(currentWeekStart);
       const resultado = Scheduler.gerarCronograma(config, atividadesFixas, tarefas, semanaInicio);
-
       Storage.saveCronograma(resultado);
-
-      const totalAlocadas = resultado.blocos ? resultado.blocos.filter(b => b.tipo === 'tarefa').length : 0;
-      const naoAlocadas = resultado.naoAgendadas ? resultado.naoAgendadas.length : 0;
-
-      this.renderCronograma();
-
-      if (naoAlocadas > 0) {
-        this.showToast(`Cronograma gerado! ${totalAlocadas} bloco(s) alocado(s). ${naoAlocadas} tarefa(s) não couberam.`, 'warning');
-      } else {
-        this.showToast(`Cronograma gerado com sucesso! ${totalAlocadas} bloco(s) alocado(s).`, 'success');
-      }
+      if (render) this.renderSection(currentSection);
+      return resultado;
     },
 
     /**
