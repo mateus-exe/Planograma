@@ -65,7 +65,7 @@ function _blocoToVEvent(bloco, dtstamp) {
     const dtEnd = dataStr + 'T' + endStr;
 
     let vevent = "BEGIN:VEVENT\r\n";
-    vevent += `UID:${bloco.id || (Date.now() + Math.random())}@Planograma\r\n`;
+    vevent += `UID:${bloco.id || (Date.now() + Math.random())}@planograma\r\n`;
     vevent += `DTSTAMP:${dtstamp}\r\n`;
     vevent += `DTSTART:${dtStart}\r\n`;
     vevent += `DTEND:${dtEnd}\r\n`;
