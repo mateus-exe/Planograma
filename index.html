@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planograna - Organizador de Cronogramas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: {
+              50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc',
+              400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca',
+              800: '#3730a3', 900: '#312e81'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { scrollbar-width: thin; scrollbar-color: #4b5563 transparent; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+    
+    .fade-in { animation: fadeIn 0.3s ease-out; }
+    .slide-in-right { animation: slideInRight 0.3s ease-out; }
+    .slide-in-up { animation: slideInUp 0.25s ease-out; }
+    .scale-in { animation: scaleIn 0.2s ease-out; }
+    .pulse-once { animation: pulseOnce 0.6s ease-out; }
+    
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideInRight { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes slideInUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @keyframes pulseOnce { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+    
+    .section { display: none; }
+    .section.active { display: block; }
+    
+    .nav-item.active { background: #4f46e5; color: white; }
+    .dark .nav-item:not(.active):hover { background: rgba(99,102,241,0.15); }
+    
+    .schedule-block { transition: all 0.15s ease; cursor: pointer; }
+    .schedule-block:hover { transform: scale(1.02); z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    
+    .task-card { transition: all 0.15s ease; }
+    .task-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    
+    .modal-overlay { transition: opacity 0.2s ease; }
+    .modal-content { transition: transform 0.2s ease, opacity 0.2s ease; }
+    
+    .time-slot { min-height: 48px; border-bottom: 1px solid rgba(148,163,184,0.1); }
+
+    .toggle-switch { position: relative; width: 44px; height: 24px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; inset: 0; background: #475569; border-radius: 12px; cursor: pointer; transition: 0.3s; }
+    .toggle-slider:before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+    .toggle-switch input:checked + .toggle-slider { background: #6366f1; }
+    .toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+    .color-option { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; transition: transform 0.15s; border: 2px solid transparent; }
+    .color-option:hover { transform: scale(1.15); }
+    .color-option.selected { border-color: white; box-shadow: 0 0 0 2px #6366f1; }
+
+    .priority-alta { background: #ef4444; color: white; }
+    .priority-media { background: #f59e0b; color: white; }
+    .priority-baixa { background: #22c55e; color: white; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-200 font-sans min-h-screen">
+
+  <!-- ========== TELA DE CARREGAMENTO ========== -->
+  <div id="loading-screen" class="fixed inset-0 z-[100] bg-slate-950 flex items-center justify-center">
+    <div class="text-center">
+      <div class="text-5xl mb-4 animate-bounce">📅</div>
+      <h1 class="text-2xl font-bold text-brand-400">Planograna</h1>
+      <p class="text-slate-400 mt-2 text-sm">Carregando...</p>
+    </div>
+  </div>
+
+  <!-- ========== LAYOUT PRINCIPAL ========== -->
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside id="sidebar" class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col fixed lg:relative h-full z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300">
+      <!-- Logo -->
+      <div class="p-5 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <span class="text-3xl">📅</span>
+          <div>
+            <h1 class="text-lg font-bold text-white">Planograna</h1>
+            <p class="text-xs text-slate-400">Organize seu tempo</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navegação -->
+      <nav class="flex-1 p-3 space-y-1">
+        <a href="#dashboard" data-nav="dashboard" class="nav-item active flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all">
+          <i class="fas fa-th-large w-5 text-center"></i> Dashboard
+        </a>
+        <a href="#atividades-fixas" data-nav="atividades-fixas" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 transition-all">
+          <i class="fas fa-calendar-check w-5 text-center"></i> Atividades Recorrentes
+        </a>
+        <a href="#tarefas" data-nav="tarefas" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 transition-all">
+          <i class="fas fa-tasks w-5 text-center"></i> Tarefas
+        </a>
+        <a href="#cronograma" data-nav="cronograma" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 transition-all">
+          <i class="fas fa-calendar-alt w-5 text-center"></i> Meu Cronograma
+        </a>
+        <a href="#configuracoes" data-nav="configuracoes" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 transition-all">
+          <i class="fas fa-cog w-5 text-center"></i> Configurações
+        </a>
+      </nav>
+
+
+    </aside>
+
+    <!-- Overlay mobile (sidebar) -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden" onclick="UI.toggleSidebar()"></div>
+
+    <!-- ===== CONTEÚDO PRINCIPAL ===== -->
+    <main class="flex-1 overflow-y-auto">
+      <!-- Header Mobile -->
+      <header class="lg:hidden sticky top-0 z-20 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+        <button id="menu-toggle" class="mobile-menu-btn text-slate-300 hover:text-white p-1">
+          <i class="fas fa-bars text-xl"></i>
+        </button>
+        <span class="font-semibold text-white">Planograna</span>
+        <button data-modal="quick-add-modal" class="text-brand-400 hover:text-brand-300 p-1">
+          <i class="fas fa-plus text-xl"></i>
+        </button>
+      </header>
+
+      <div class="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+
+        <!-- ==================== DASHBOARD ==================== -->
+        <section id="dashboard" class="section active fade-in">
+          <!-- Saudação -->
+          <div class="mb-8">
+            <h2 class="text-2xl md:text-3xl font-bold text-white" id="greeting">Bom dia! 👋</h2>
+            <p class="text-slate-400 mt-1" id="greeting-sub">Confira seu dia de hoje</p>
+          </div>
+
+          <!-- Cards de Estatísticas -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 slide-in-up">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">Total de Tarefas</span>
+                <span class="text-brand-400"><i class="fas fa-list-check"></i></span>
+              </div>
+              <p class="text-2xl font-bold text-white" id="stat-total">0</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 slide-in-up" style="animation-delay:0.05s">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">Concluídas</span>
+                <span class="text-green-400"><i class="fas fa-check-circle"></i></span>
+              </div>
+              <p class="text-2xl font-bold text-green-400" id="stat-concluidas">0</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 slide-in-up" style="animation-delay:0.1s">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">Pendentes</span>
+                <span class="text-amber-400"><i class="fas fa-clock"></i></span>
+              </div>
+              <p class="text-2xl font-bold text-amber-400" id="stat-pendentes">0</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 slide-in-up" style="animation-delay:0.15s">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">Horas Livres Hoje</span>
+                <span class="text-cyan-400"><i class="fas fa-hourglass-half"></i></span>
+              </div>
+              <p class="text-2xl font-bold text-cyan-400" id="stat-horas-livres">-</p>
+            </div>
+          </div>
+
+          <!-- Agenda de Hoje -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-semibold text-white"><i class="fas fa-calendar-day mr-2 text-brand-400"></i>Agenda de Hoje</h3>
+              <span class="text-xs text-slate-400" id="today-date"></span>
+            </div>
+            <div id="today-timeline" class="space-y-2">
+              <p class="text-slate-500 text-sm text-center py-6">Nenhuma atividade agendada para hoje.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== ATIVIDADES RECORRENTES ==================== -->
+        <section id="atividades-fixas" class="section fade-in">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h2 class="text-2xl font-bold text-white">Atividades Recorrentes</h2>
+              <p class="text-slate-400 text-sm mt-1">Cadastre suas atividades recorrentes da rotina</p>
+            </div>
+          </div>
+
+          <!-- Formulário de Atividade Recorrente -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6">
+            <h3 class="font-semibold text-white mb-4"><i class="fas fa-plus-circle mr-2 text-brand-400"></i>Nova Atividade Recorrente</h3>
+            <form id="atividade-form" class="space-y-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Nome -->
+                <div>
+                  <label class="block text-sm font-medium text-slate-300 mb-1">Nome da Atividade *</label>
+                  <input type="text" name="nome" required placeholder="Ex: Trabalho, Faculdade..."
+                    class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition">
+                </div>
+                <!-- Categoria -->
+                <div>
+                  <label class="block text-sm font-medium text-slate-300 mb-1">Categoria</label>
+                  <select name="categoria"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                    <option value="trabalho">💼 Trabalho</option>
+                    <option value="faculdade">🎓 Faculdade</option>
+                    <option value="curso">📚 Curso</option>
+                    <option value="esporte">🏃 Esporte</option>
+                    <option value="saude">❤️ Saúde</option>
+                    <option value="outro">📌 Outro</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Dias da Semana -->
+              <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">Dias da Semana *</label>
+                <div class="flex flex-wrap gap-2">
+                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="1" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Seg</span></label>
+                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="2" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Ter</span></label>
+                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="3" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qua</span></label>
+                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="4" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qui</span></label>
+                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="5" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sex</span></label>
+                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="6" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sáb</span></label>
+                  <label class="cursor-pointer"><input type="checkbox" name="dias" value="0" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Dom</span></label>
+                </div>
+              </div>
+
+              <!-- Horários -->
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-300 mb-1">Horário de Início *</label>
+                  <input type="time" name="horaInicio" required
+                    class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-300 mb-1">Horário de Término *</label>
+                  <input type="time" name="horaFim" required
+                    class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                </div>
+              </div>
+
+              <!-- Cor -->
+              <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">Cor</label>
+                <div class="flex gap-3" id="color-picker-atividade">
+                  <div class="color-option selected" data-color="#6366f1" style="background:#6366f1"></div>
+                  <div class="color-option" data-color="#ef4444" style="background:#ef4444"></div>
+                  <div class="color-option" data-color="#f59e0b" style="background:#f59e0b"></div>
+                  <div class="color-option" data-color="#22c55e" style="background:#22c55e"></div>
+                  <div class="color-option" data-color="#06b6d4" style="background:#06b6d4"></div>
+                  <div class="color-option" data-color="#ec4899" style="background:#ec4899"></div>
+                  <div class="color-option" data-color="#8b5cf6" style="background:#8b5cf6"></div>
+                  <div class="color-option" data-color="#64748b" style="background:#64748b"></div>
+                </div>
+                <input type="hidden" name="cor" value="#6366f1">
+              </div>
+
+              <button type="submit" class="w-full md:w-auto px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+                <i class="fas fa-plus"></i> Adicionar Atividade
+              </button>
+            </form>
+          </div>
+
+          <!-- Lista de Atividades Recorrentes -->
+          <div id="atividades-lista" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="text-center py-12 text-slate-500 col-span-full">
+              <i class="fas fa-calendar-plus text-4xl mb-3 block"></i>
+              <p>Nenhuma atividade recorrente cadastrada ainda.</p>
+              <p class="text-sm mt-1">Comece adicionando suas atividades recorrentes acima.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== TAREFAS ==================== -->
+        <section id="tarefas" class="section fade-in">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h2 class="text-2xl font-bold text-white">Tarefas</h2>
+              <p class="text-slate-400 text-sm mt-1">Gerencie as tarefas que precisam ser encaixadas na rotina</p>
+            </div>
+          </div>
+
+          <!-- Formulário de Tarefa -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6">
+            <h3 class="font-semibold text-white mb-4"><i class="fas fa-plus-circle mr-2 text-brand-400"></i>Nova Tarefa</h3>
+            <form id="tarefa-form" class="space-y-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-300 mb-1">Nome da Tarefa *</label>
+                  <input type="text" name="nome" required placeholder="Ex: Estudar Cálculo..."
+                    class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-300 mb-1">Categoria</label>
+                  <select name="categoria"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                    <option value="estudo">📖 Estudo</option>
+                    <option value="pessoal">👤 Pessoal</option>
+                    <option value="projeto">🚀 Projeto</option>
+                    <option value="exercicio">🏋️ Exercício</option>
+                    <option value="outro">📌 Outro</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Descrição</label>
+                <textarea name="descricao" rows="2" placeholder="Detalhes opcionais..."
+                  class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 transition resize-none"></textarea>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-300 mb-1">Prioridade</label>
+                  <select name="prioridade"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                    <option value="alta">🔴 Alta</option>
+                    <option value="media" selected>🟡 Média</option>
+                    <option value="baixa">🟢 Baixa</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-300 mb-1">Duração Estimada *</label>
+                  <div class="flex gap-2">
+                    <input type="number" name="duracao" min="5" required placeholder="60"
+                      class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                    <select name="duracao-unidade"
+                      class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                      <option value="min">min</option>
+                      <option value="hora">horas</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-300 mb-1">Prazo</label>
+                  <input type="date" name="prazo"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3">
+                <label class="toggle-switch">
+                  <input type="checkbox" name="divisivel">
+                  <span class="toggle-slider"></span>
+                </label>
+                <span class="text-sm text-slate-300">Pode ser dividida em blocos menores</span>
+              </div>
+
+              <button type="submit" class="w-full md:w-auto px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
+                <i class="fas fa-plus"></i> Adicionar Tarefa
+              </button>
+            </form>
+          </div>
+
+          <!-- Filtros e Ordenação -->
+          <div class="flex flex-wrap items-center gap-3 mb-4">
+            <select id="filter-prioridade" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <option value="">Todas as prioridades</option>
+              <option value="alta">🔴 Alta</option>
+              <option value="media">🟡 Média</option>
+              <option value="baixa">🟢 Baixa</option>
+            </select>
+            <select id="filter-status" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <option value="">Todos os status</option>
+              <option value="pendente">Pendentes</option>
+              <option value="concluida">Concluídas</option>
+            </select>
+            <select id="sort-tarefas" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+              <option value="prioridade">Ordenar: Prioridade</option>
+              <option value="prazo">Ordenar: Prazo</option>
+              <option value="nome">Ordenar: Nome</option>
+              <option value="duracao">Ordenar: Duração</option>
+            </select>
+          </div>
+
+          <!-- Lista de Tarefas -->
+          <div id="tarefas-lista" class="space-y-3">
+            <div class="text-center py-12 text-slate-500">
+              <i class="fas fa-clipboard-list text-4xl mb-3 block"></i>
+              <p>Nenhuma tarefa cadastrada ainda.</p>
+              <p class="text-sm mt-1">Adicione tarefas que você precisa encaixar na rotina.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== MEU CRONOGRAMA ==================== -->
+        <section id="cronograma" class="section fade-in">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+            <div>
+              <h2 class="text-2xl font-bold text-white">Meu Cronograma</h2>
+              <p class="text-slate-400 text-sm mt-1">Visualize e gere seu cronograma semanal</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btn-gerar-cronograma" class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg text-sm transition-colors flex items-center gap-2">
+                <i class="fas fa-magic"></i> Gerar Cronograma
+              </button>
+              <button id="btn-export-ics" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2">
+                <i class="fas fa-calendar-plus"></i> Exportar (.ics)
+              </button>
+              <button id="btn-export-cronograma" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2">
+                <i class="fas fa-print"></i> Imprimir
+              </button>
+            </div>
+          </div>
+
+          <!-- Controles de Navegação da Semana -->
+          <div class="flex items-center justify-between mb-4 bg-slate-900 border border-slate-800 rounded-xl p-3">
+            <button id="btn-prev-week" class="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="flex items-center gap-3">
+              <button id="btn-view-semanal" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-600 text-white transition-colors">Semanal</button>
+              <button id="btn-view-diario" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:text-white transition-colors">Diário</button>
+              <span class="text-sm font-medium text-white mx-2" id="week-label">Semana Atual</span>
+              <button id="btn-today" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">Hoje</button>
+            </div>
+            <button id="btn-next-week" class="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white">
+              <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+
+          <!-- Grade do Cronograma -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+            <div id="schedule-grid" class="overflow-x-auto">
+              <!-- Cabeçalho dos dias -->
+              <div class="flex border-b border-slate-800 sticky top-0 bg-slate-900 z-10" id="schedule-header">
+                <div class="flex-shrink-0 p-3 text-xs font-medium text-slate-500 border-r border-slate-800" style="width:80px">Horário</div>
+                <div class="flex-1 grid grid-cols-7">
+                  <div class="p-3 text-xs font-medium text-slate-300 text-center border-r border-slate-800/30">Seg</div>
+                  <div class="p-3 text-xs font-medium text-slate-300 text-center border-r border-slate-800/30">Ter</div>
+                  <div class="p-3 text-xs font-medium text-slate-300 text-center border-r border-slate-800/30">Qua</div>
+                  <div class="p-3 text-xs font-medium text-slate-300 text-center border-r border-slate-800/30">Qui</div>
+                  <div class="p-3 text-xs font-medium text-slate-300 text-center border-r border-slate-800/30">Sex</div>
+                  <div class="p-3 text-xs font-medium text-slate-300 text-center border-r border-slate-800/30">Sáb</div>
+                  <div class="p-3 text-xs font-medium text-slate-300 text-center">Dom</div>
+                </div>
+              </div>
+              <!-- Corpo da grade (preenchido via JS) -->
+              <div id="schedule-body" class="relative" style="min-height: 800px;">
+                <p class="text-slate-500 text-sm text-center py-12">Clique em "Gerar Cronograma" para criar sua agenda semanal.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== CONFIGURAÇÕES ==================== -->
+        <section id="configuracoes" class="section fade-in">
+          <div class="mb-6">
+            <h2 class="text-2xl font-bold text-white">Configurações</h2>
+            <p class="text-slate-400 text-sm mt-1">Personalize o Planograna do seu jeito</p>
+          </div>
+
+          <form id="config-form" class="space-y-6 max-w-2xl">
+            <!-- Nome do Usuário -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+              <h3 class="font-semibold text-white mb-4"><i class="fas fa-user mr-2 text-brand-400"></i>Perfil</h3>
+              <div>
+                <label class="block text-sm font-medium text-slate-300 mb-1">Seu Nome</label>
+                <input type="text" name="nome" placeholder="Como podemos te chamar?"
+                  class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+              </div>
+            </div>
+
+            <!-- Horários -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+              <h3 class="font-semibold text-white mb-4"><i class="fas fa-clock mr-2 text-brand-400"></i>Horários</h3>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-300 mb-1">Horário de Acordar</label>
+                  <input type="time" name="acordar" value="06:00"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-300 mb-1">Horário de Dormir</label>
+                  <input type="time" name="dormir" value="23:00"
+                    class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+                </div>
+              </div>
+              <div class="mt-4">
+                <label class="block text-sm font-medium text-slate-300 mb-1">Intervalo Mínimo entre Atividades (minutos)</label>
+                <input type="number" name="intervaloMinimo" min="0" max="60" value="15"
+                  class="w-32 bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+              </div>
+            </div>
+
+            <!-- Dias Úteis -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+              <h3 class="font-semibold text-white mb-4"><i class="fas fa-calendar-week mr-2 text-brand-400"></i>Dias Úteis</h3>
+              <div class="flex flex-wrap gap-2">
+                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="1" checked class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Seg</span></label>
+                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="2" checked class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Ter</span></label>
+                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="3" checked class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qua</span></label>
+                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="4" checked class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qui</span></label>
+                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="5" checked class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sex</span></label>
+                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="6" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sáb</span></label>
+                <label class="cursor-pointer"><input type="checkbox" name="diasUteis" value="0" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Dom</span></label>
+              </div>
+            </div>
+
+
+            <button type="submit" class="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg text-sm transition-colors flex items-center gap-2">
+              <i class="fas fa-save"></i> Salvar Configurações
+            </button>
+          </form>
+
+          <!-- Ações de Dados -->
+          <div class="mt-8 max-w-2xl bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <h3 class="font-semibold text-white mb-4"><i class="fas fa-database mr-2 text-brand-400"></i>Gerenciar Dados</h3>
+            <div class="flex flex-wrap gap-3">
+              <button id="btn-export-data" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2">
+                <i class="fas fa-download"></i> Exportar Dados
+              </button>
+              <button id="btn-import-data" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2">
+                <i class="fas fa-upload"></i> Importar Dados
+              </button>
+              <button id="btn-load-sample" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white rounded-lg text-sm transition-colors flex items-center gap-2">
+                <i class="fas fa-flask"></i> Carregar Dados de Exemplo
+              </button>
+              <button id="btn-clear-data" class="px-4 py-2 bg-red-900/50 hover:bg-red-800/60 border border-red-800 text-red-300 rounded-lg text-sm transition-colors flex items-center gap-2">
+                <i class="fas fa-trash-alt"></i> Limpar Todos os Dados
+              </button>
+            </div>
+            <input type="file" id="import-file-input" accept=".json" class="hidden">
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ========== FAB (Mobile) ========== -->
+  <button id="fab-add" data-modal="quick-add-modal" class="lg:hidden fixed bottom-6 right-6 w-14 h-14 bg-brand-600 hover:bg-brand-700 text-white rounded-full shadow-lg shadow-brand-600/30 flex items-center justify-center text-2xl z-20 transition-transform hover:scale-110">
+    <i class="fas fa-plus"></i>
+  </button>
+
+  <!-- ========== MODAIS ========== -->
+
+  <!-- Modal: Editar Atividade -->
+  <div id="edit-atividade-modal" class="modal-overlay fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4" onclick="if(event.target===this)UI.closeModal('edit-atividade-modal')">
+    <div class="modal-content bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 scale-in">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-lg font-semibold text-white">Editar Atividade</h3>
+        <button onclick="UI.closeModal('edit-atividade-modal')" class="text-slate-400 hover:text-white transition"><i class="fas fa-times text-lg"></i></button>
+      </div>
+      <form id="edit-atividade-form" class="space-y-4">
+        <input type="hidden" name="id">
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1">Nome *</label>
+          <input type="text" name="nome" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1">Categoria</label>
+          <select name="categoria" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+            <option value="trabalho">💼 Trabalho</option>
+            <option value="faculdade">🎓 Faculdade</option>
+            <option value="curso">📚 Curso</option>
+            <option value="esporte">🏃 Esporte</option>
+            <option value="saude">❤️ Saúde</option>
+            <option value="outro">📌 Outro</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Dias da Semana</label>
+          <div class="flex flex-wrap gap-2" id="edit-dias-semana">
+            <label class="cursor-pointer"><input type="checkbox" name="dias" value="1" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Seg</span></label>
+            <label class="cursor-pointer"><input type="checkbox" name="dias" value="2" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Ter</span></label>
+            <label class="cursor-pointer"><input type="checkbox" name="dias" value="3" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qua</span></label>
+            <label class="cursor-pointer"><input type="checkbox" name="dias" value="4" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Qui</span></label>
+            <label class="cursor-pointer"><input type="checkbox" name="dias" value="5" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sex</span></label>
+            <label class="cursor-pointer"><input type="checkbox" name="dias" value="6" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Sáb</span></label>
+            <label class="cursor-pointer"><input type="checkbox" name="dias" value="0" class="hidden peer"><span class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 border border-slate-700 peer-checked:bg-brand-600 peer-checked:border-brand-500 peer-checked:text-white transition">Dom</span></label>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1">Início *</label>
+            <input type="time" name="horaInicio" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1">Término *</label>
+            <input type="time" name="horaFim" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">Cor</label>
+          <div class="flex gap-3" id="edit-color-picker-atividade">
+            <div class="color-option" data-color="#6366f1" style="background:#6366f1"></div>
+            <div class="color-option" data-color="#ef4444" style="background:#ef4444"></div>
+            <div class="color-option" data-color="#f59e0b" style="background:#f59e0b"></div>
+            <div class="color-option" data-color="#22c55e" style="background:#22c55e"></div>
+            <div class="color-option" data-color="#06b6d4" style="background:#06b6d4"></div>
+            <div class="color-option" data-color="#ec4899" style="background:#ec4899"></div>
+            <div class="color-option" data-color="#8b5cf6" style="background:#8b5cf6"></div>
+            <div class="color-option" data-color="#64748b" style="background:#64748b"></div>
+          </div>
+          <input type="hidden" name="cor" value="#6366f1">
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg text-sm transition-colors">Salvar</button>
+          <button type="button" onclick="UI.closeModal('edit-atividade-modal')" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm transition-colors">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Editar Tarefa -->
+  <div id="edit-tarefa-modal" class="modal-overlay fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4" onclick="if(event.target===this)UI.closeModal('edit-tarefa-modal')">
+    <div class="modal-content bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 scale-in">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-lg font-semibold text-white">Editar Tarefa</h3>
+        <button onclick="UI.closeModal('edit-tarefa-modal')" class="text-slate-400 hover:text-white transition"><i class="fas fa-times text-lg"></i></button>
+      </div>
+      <form id="edit-tarefa-form" class="space-y-4">
+        <input type="hidden" name="id">
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1">Nome *</label>
+          <input type="text" name="nome" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-1">Descrição</label>
+          <textarea name="descricao" rows="2" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition resize-none"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1">Prioridade</label>
+            <select name="prioridade" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+              <option value="alta">🔴 Alta</option>
+              <option value="media">🟡 Média</option>
+              <option value="baixa">🟢 Baixa</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1">Categoria</label>
+            <select name="categoria" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+              <option value="estudo">📖 Estudo</option>
+              <option value="pessoal">👤 Pessoal</option>
+              <option value="projeto">🚀 Projeto</option>
+              <option value="exercicio">🏋️ Exercício</option>
+              <option value="outro">📌 Outro</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1">Duração (min) *</label>
+            <input type="number" name="duracao" min="5" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-1">Prazo</label>
+            <input type="date" name="prazo" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <label class="toggle-switch">
+            <input type="checkbox" name="divisivel">
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="text-sm text-slate-300">Pode ser dividida</span>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="flex-1 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg text-sm transition-colors">Salvar</button>
+          <button type="button" onclick="UI.closeModal('edit-tarefa-modal')" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm transition-colors">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Confirmação -->
+  <div id="confirm-modal" class="modal-overlay fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4" onclick="if(event.target===this)UI.closeModal('confirm-modal')">
+    <div class="modal-content bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-6 scale-in text-center">
+      <div class="text-4xl mb-3">⚠️</div>
+      <h3 class="text-lg font-semibold text-white mb-2" id="confirm-title">Tem certeza?</h3>
+      <p class="text-sm text-slate-400 mb-6" id="confirm-message">Esta ação não pode ser desfeita.</p>
+      <div class="flex gap-3">
+        <button id="confirm-cancel-btn" onclick="UI.closeModal('confirm-modal')" class="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm transition-colors">Cancelar</button>
+        <button id="confirm-ok-btn" class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg text-sm transition-colors">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Quick Add (Mobile) -->
+  <div id="quick-add-modal" class="modal-overlay fixed inset-0 bg-black/60 z-50 hidden items-center justify-center p-4" onclick="if(event.target===this)UI.closeModal('quick-add-modal')">
+    <div class="modal-content bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-6 scale-in">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-lg font-semibold text-white">Adicionar Rápido</h3>
+        <button onclick="UI.closeModal('quick-add-modal')" class="text-slate-400 hover:text-white transition"><i class="fas fa-times text-lg"></i></button>
+      </div>
+      <div class="space-y-3">
+        <button onclick="UI.closeModal('quick-add-modal');UI.navigateTo('atividades-fixas')" class="w-full flex items-center gap-3 p-4 bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors text-left">
+          <span class="w-10 h-10 bg-brand-600/20 rounded-lg flex items-center justify-center text-brand-400"><i class="fas fa-calendar-check"></i></span>
+          <div>
+            <p class="text-sm font-medium text-white">Nova Atividade Recorrente</p>
+            <p class="text-xs text-slate-400">Trabalho, faculdade, etc.</p>
+          </div>
+        </button>
+        <button onclick="UI.closeModal('quick-add-modal');UI.navigateTo('tarefas')" class="w-full flex items-center gap-3 p-4 bg-slate-800 hover:bg-slate-700 rounded-xl transition-colors text-left">
+          <span class="w-10 h-10 bg-amber-600/20 rounded-lg flex items-center justify-center text-amber-400"><i class="fas fa-tasks"></i></span>
+          <div>
+            <p class="text-sm font-medium text-white">Nova Tarefa</p>
+            <p class="text-xs text-slate-400">Estudar, projeto, etc.</p>
+          </div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TOAST CONTAINER ========== -->
+  <div id="toast-container" class="fixed top-4 right-4 z-[60] space-y-2 w-80"></div>
+
+  <!-- ========== WELCOME MODAL (Primeira visita) ========== -->
+  <div id="welcome-modal" class="modal-overlay fixed inset-0 bg-black/70 z-[55] hidden items-center justify-center p-4">
+    <div class="modal-content bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-8 scale-in text-center">
+      <div class="text-5xl mb-4">📅</div>
+      <h2 class="text-2xl font-bold text-white mb-2">Bem-vindo ao Planograna!</h2>
+      <p class="text-slate-400 text-sm mb-6">Organize sua rotina de forma inteligente. Como podemos te chamar?</p>
+      <form id="welcome-form" class="space-y-4">
+        <input type="text" name="nome" placeholder="Seu nome" autofocus
+          class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-center text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 transition">
+        <button type="submit" class="w-full px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg transition-colors">
+          Começar a Organizar! 🚀
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/storage.js"></script>
+  <script src="js/scheduler.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/icsExport.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
