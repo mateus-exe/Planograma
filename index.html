@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/styles.css">
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -25,57 +26,6 @@
       }
     }
   </script>
-  <style>
-    :root { color-scheme: dark; }
-    * { scrollbar-width: thin; scrollbar-color: #4b5563 transparent; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
-    
-    .fade-in { animation: fadeIn 0.3s ease-out; }
-    .slide-in-right { animation: slideInRight 0.3s ease-out; }
-    .slide-in-up { animation: slideInUp 0.25s ease-out; }
-    .scale-in { animation: scaleIn 0.2s ease-out; }
-    .pulse-once { animation: pulseOnce 0.6s ease-out; }
-    
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes slideInRight { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    @keyframes slideInUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-    @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-    @keyframes pulseOnce { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-    
-    .section { display: none; }
-    .section.active { display: block; }
-    
-    .nav-item.active { background: #4f46e5; color: white; }
-    .dark .nav-item:not(.active):hover { background: rgba(99,102,241,0.15); }
-    
-    .schedule-block { transition: all 0.15s ease; cursor: pointer; }
-    .schedule-block:hover { transform: scale(1.02); z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-    
-    .task-card { transition: all 0.15s ease; }
-    .task-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    
-    .modal-overlay { transition: opacity 0.2s ease; }
-    .modal-content { transition: transform 0.2s ease, opacity 0.2s ease; }
-    
-    .time-slot { min-height: 48px; border-bottom: 1px solid rgba(148,163,184,0.1); }
-
-    .toggle-switch { position: relative; width: 44px; height: 24px; }
-    .toggle-switch input { opacity: 0; width: 0; height: 0; }
-    .toggle-slider { position: absolute; inset: 0; background: #475569; border-radius: 12px; cursor: pointer; transition: 0.3s; }
-    .toggle-slider:before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
-    .toggle-switch input:checked + .toggle-slider { background: #6366f1; }
-    .toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
-
-    .color-option { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; transition: transform 0.15s; border: 2px solid transparent; }
-    .color-option:hover { transform: scale(1.15); }
-    .color-option.selected { border-color: white; box-shadow: 0 0 0 2px #6366f1; }
-
-    .priority-alta { background: #ef4444; color: white; }
-    .priority-media { background: #f59e0b; color: white; }
-    .priority-baixa { background: #22c55e; color: white; }
-  </style>
 </head>
 <body class="bg-slate-950 text-slate-200 font-sans min-h-screen">
 
@@ -161,21 +111,21 @@
               </div>
               <p class="text-2xl font-bold text-white" id="stat-total">0</p>
             </div>
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 slide-in-up" style="animation-delay:0.05s">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 slide-in-up delay-50ms">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">Concluídas</span>
                 <span class="text-green-400"><i class="fas fa-check-circle"></i></span>
               </div>
               <p class="text-2xl font-bold text-green-400" id="stat-concluidas">0</p>
             </div>
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 slide-in-up" style="animation-delay:0.1s">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 slide-in-up delay-100ms">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">Pendentes</span>
                 <span class="text-amber-400"><i class="fas fa-clock"></i></span>
               </div>
               <p class="text-2xl font-bold text-amber-400" id="stat-pendentes">0</p>
             </div>
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 slide-in-up" style="animation-delay:0.15s">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 slide-in-up delay-150ms">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-xs font-medium text-slate-400 uppercase tracking-wide">Horas Livres Hoje</span>
                 <span class="text-cyan-400"><i class="fas fa-hourglass-half"></i></span>
@@ -263,14 +213,14 @@
               <div>
                 <label class="block text-sm font-medium text-slate-300 mb-2">Cor</label>
                 <div class="flex gap-3" id="color-picker-atividade">
-                  <div class="color-option selected" data-color="#6366f1" style="background:#6366f1"></div>
-                  <div class="color-option" data-color="#ef4444" style="background:#ef4444"></div>
-                  <div class="color-option" data-color="#f59e0b" style="background:#f59e0b"></div>
-                  <div class="color-option" data-color="#22c55e" style="background:#22c55e"></div>
-                  <div class="color-option" data-color="#06b6d4" style="background:#06b6d4"></div>
-                  <div class="color-option" data-color="#ec4899" style="background:#ec4899"></div>
-                  <div class="color-option" data-color="#8b5cf6" style="background:#8b5cf6"></div>
-                  <div class="color-option" data-color="#64748b" style="background:#64748b"></div>
+                  <div class="color-option color-indigo selected" data-color="#6366f1"></div>
+                  <div class="color-option color-red" data-color="#ef4444"></div>
+                  <div class="color-option color-amber" data-color="#f59e0b"></div>
+                  <div class="color-option color-green" data-color="#22c55e"></div>
+                  <div class="color-option color-cyan" data-color="#06b6d4"></div>
+                  <div class="color-option color-pink" data-color="#ec4899"></div>
+                  <div class="color-option color-violet" data-color="#8b5cf6"></div>
+                  <div class="color-option color-slate" data-color="#64748b"></div>
                 </div>
                 <input type="hidden" name="cor" value="#6366f1">
               </div>
@@ -448,7 +398,7 @@
             <div id="schedule-grid" class="overflow-x-auto">
               <!-- Cabeçalho dos dias -->
               <div class="flex border-b border-slate-800 sticky top-0 bg-slate-900 z-10 min-w-[800px]" id="schedule-header">
-                <div class="flex-shrink-0 p-3 text-xs font-medium text-slate-500 border-r border-slate-800" style="width:80px">Horário</div>
+                <div class="flex-shrink-0 p-3 text-xs font-medium text-slate-500 border-r border-slate-800 schedule-time-header">Horário</div>
                 <div class="flex-1 grid grid-cols-7">
                   <div class="p-3 text-xs font-medium text-slate-300 text-center border-r border-slate-800/30">Seg</div>
                   <div class="p-3 text-xs font-medium text-slate-300 text-center border-r border-slate-800/30">Ter</div>
@@ -460,7 +410,7 @@
                 </div>
               </div>
               <!-- Corpo da grade (preenchido via JS) -->
-              <div id="schedule-body" class="relative min-w-[800px]" style="min-height: 800px;">
+              <div id="schedule-body" class="relative min-w-[800px] schedule-body">
                 <p class="text-slate-500 text-sm text-center py-12">Clique em "Gerar Cronograma" para criar sua agenda semanal.</p>
               </div>
             </div>
@@ -608,14 +558,14 @@
         <div>
           <label class="block text-sm font-medium text-slate-300 mb-2">Cor</label>
           <div class="flex gap-3" id="edit-color-picker-atividade">
-            <div class="color-option" data-color="#6366f1" style="background:#6366f1"></div>
-            <div class="color-option" data-color="#ef4444" style="background:#ef4444"></div>
-            <div class="color-option" data-color="#f59e0b" style="background:#f59e0b"></div>
-            <div class="color-option" data-color="#22c55e" style="background:#22c55e"></div>
-            <div class="color-option" data-color="#06b6d4" style="background:#06b6d4"></div>
-            <div class="color-option" data-color="#ec4899" style="background:#ec4899"></div>
-            <div class="color-option" data-color="#8b5cf6" style="background:#8b5cf6"></div>
-            <div class="color-option" data-color="#64748b" style="background:#64748b"></div>
+            <div class="color-option color-indigo" data-color="#6366f1"></div>
+            <div class="color-option color-red" data-color="#ef4444"></div>
+            <div class="color-option color-amber" data-color="#f59e0b"></div>
+            <div class="color-option color-green" data-color="#22c55e"></div>
+            <div class="color-option color-cyan" data-color="#06b6d4"></div>
+            <div class="color-option color-pink" data-color="#ec4899"></div>
+            <div class="color-option color-violet" data-color="#8b5cf6"></div>
+            <div class="color-option color-slate" data-color="#64748b"></div>
           </div>
           <input type="hidden" name="cor" value="#6366f1">
         </div>
