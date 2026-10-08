@@ -778,7 +778,8 @@
       const startHour = parseInt(acordar.split(':')[0]);
       const endHour = parseInt(dormir.split(':')[0]) + 1;
       const totalHours = endHour - startHour;
-      const rowHeight = 48; // pixels por hora
+      const isPrinting = document.body.classList.contains('printing');
+      const rowHeight = isPrinting ? Math.floor(620 / totalHours) : 48; // pixels por hora
 
       // Construir grade de horários
       let gridHTML = '<div class="relative min-w-[800px]" style="height: ' + (totalHours * rowHeight) + 'px">';
@@ -847,19 +848,21 @@
       }
 
       // Indicador de hora atual
-      const now = new Date();
-      const todayStr = toISODate(now);
-      const todayColIdx = weekDates.indexOf(todayStr);
-      if (todayColIdx >= 0) {
-        const nowMinutes = now.getHours() * 60 + now.getMinutes();
-        const startMinutes = startHour * 60;
-        if (nowMinutes >= startMinutes && nowMinutes <= endHour * 60) {
-          const nowY = ((nowMinutes - startMinutes) / 60) * rowHeight;
-          gridHTML += `
-            <div class="absolute left-[80px] right-0 flex items-center z-20 pointer-events-none" style="top: ${nowY}px">
-              <div class="w-2 h-2 rounded-full bg-red-500"></div>
-              <div class="flex-1 h-[2px] bg-red-500 opacity-60"></div>
-            </div>`;
+      if (!isPrinting) {
+        const now = new Date();
+        const todayStr = toISODate(now);
+        const todayColIdx = weekDates.indexOf(todayStr);
+        if (todayColIdx >= 0) {
+          const nowMinutes = now.getHours() * 60 + now.getMinutes();
+          const startMinutes = startHour * 60;
+          if (nowMinutes >= startMinutes && nowMinutes <= endHour * 60) {
+            const nowY = ((nowMinutes - startMinutes) / 60) * rowHeight;
+            gridHTML += `
+              <div class="absolute left-[80px] right-0 flex items-center z-20 pointer-events-none" style="top: ${nowY}px">
+                <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                <div class="flex-1 h-[2px] bg-red-500 opacity-60"></div>
+              </div>`;
+          }
         }
       }
 
@@ -1066,7 +1069,24 @@
      * Exportar/imprimir cronograma
      */
     handleExport() {
-      window.print();
+      const previousView = currentView;
+      
+      // 1. Marca que estamos entrando em modo de impressão ANTES de renderizar
+      document.body.classList.add('printing');
+
+      // 2. Força a visão semanal e MANDA RENDERIZAR (agora ele vai usar o rowHeight menor)
+      currentView = 'semanal';
+      this.renderCronograma();
+
+      // 3. Abre a tela de impressão após renderizar o tamanho novo
+      setTimeout(() => {
+        window.print();
+        
+        // 4. Quando fechar a impressão, remove a marcação e renderiza de volta ao tamanho normal
+        document.body.classList.remove('printing');
+        currentView = previousView;
+        this.renderCronograma();
+      }, 300);
     },
 
     // === CONFIGURAÇÕES ===
