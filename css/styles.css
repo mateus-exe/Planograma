@@ -1,0 +1,123 @@
+:root { color-scheme: dark; }
+
+* { scrollbar-width: thin; scrollbar-color: #4b5563 transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+
+.fade-in { animation: fadeIn 0.3s ease-out; }
+.slide-in-right { animation: slideInRight 0.3s ease-out; }
+.slide-in-up { animation: slideInUp 0.25s ease-out; }
+.scale-in { animation: scaleIn 0.2s ease-out; }
+.pulse-once { animation: pulseOnce 0.6s ease-out; }
+.delay-50ms { animation-delay: 0.05s; }
+.delay-100ms { animation-delay: 0.1s; }
+.delay-150ms { animation-delay: 0.15s; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideInRight { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes slideInUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes pulseOnce { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+.section { display: none; }
+.section.active { display: block; }
+
+.nav-item.active { background: #4f46e5; color: white; }
+.dark .nav-item:not(.active):hover { background: rgba(99,102,241,0.15); }
+
+.schedule-block { transition: all 0.15s ease; cursor: pointer; }
+.schedule-block:hover { transform: scale(1.02); z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+
+.task-card { transition: all 0.15s ease; }
+.task-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
+.modal-overlay { transition: opacity 0.2s ease; }
+.modal-content { transition: transform 0.2s ease, opacity 0.2s ease; }
+.time-slot { min-height: 48px; border-bottom: 1px solid rgba(148,163,184,0.1); }
+
+.toggle-switch { position: relative; width: 44px; height: 24px; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: #475569; border-radius: 12px; cursor: pointer; transition: 0.3s; }
+.toggle-slider:before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+.toggle-switch input:checked + .toggle-slider { background: #6366f1; }
+.toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+.color-option { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; transition: transform 0.15s; border: 2px solid transparent; }
+.color-option:hover { transform: scale(1.15); }
+.color-option.selected { border-color: white; box-shadow: 0 0 0 2px #6366f1; }
+.color-indigo { background: #6366f1; }
+.color-red { background: #ef4444; }
+.color-amber { background: #f59e0b; }
+.color-green { background: #22c55e; }
+.color-cyan { background: #06b6d4; }
+.color-pink { background: #ec4899; }
+.color-violet { background: #8b5cf6; }
+.color-slate { background: #64748b; }
+
+.schedule-time-header { width: 80px; }
+.schedule-body { min-height: 800px; }
+
+.priority-alta { background: #ef4444; color: white; }
+.priority-media { background: #f59e0b; color: white; }
+.priority-baixa { background: #22c55e; color: white; }
+
+
+/* ================== IMPRESSÃO ================== */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  /* Ocultar elementos irrelevantes */
+  #sidebar, #sidebar-overlay, header.lg\:hidden, #fab-add,
+  #btn-export-ics, #btn-export-cronograma,
+  #btn-prev-week, #btn-next-week, #btn-view-mensal, #btn-view-semanal, #btn-view-diario, #btn-today,
+  #toast-container, #loading-screen, .modal-overlay {
+    display: none !important;
+  }
+
+  /* Layout centralizado e claro */
+  html, body {
+    height: 100% !important;
+  }
+  
+  body {
+    background: white !important;
+    color: #1e293b !important;
+    font-size: 11pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+  
+  .flex.h-screen { display: block !important; height: auto !important; overflow: visible !important; width: 100% !important; }
+  main { overflow: visible !important; width: 100% !important; }
+  main > div { max-width: 100% !important; margin: 0 auto !important; padding: 0 !important; }
+  
+  .section:not(#cronograma) { display: none !important; }
+  #cronograma { display: block !important; }
+
+  /* Cabeçalhos */
+  #cronograma > div:first-child { display: none !important; } /* Ocultar "Meu Cronograma" e botões */
+  #cronograma .bg-slate-900.border.border-slate-800.rounded-xl.p-3 { background: transparent !important; border: none !important; padding: 0 !important; text-align: center !important; justify-content: center !important; margin-bottom: 5mm !important; }
+  #week-label { font-size: 14pt !important; font-weight: 600 !important; color: #1e293b !important; text-align: center !important; display: block !important; width: 100% !important; }
+
+  /* Grade do cronograma */
+  .schedule-body { min-height: unset !important; }
+  #schedule-body { min-height: unset !important; }
+  #schedule-grid { overflow: visible !important; width: 100% !important; }
+  #schedule-grid > div, #schedule-body, #schedule-body > div { min-width: 100% !important; width: 100% !important; }
+  .bg-slate-900 { background: white !important; border-color: #e2e8f0 !important; }
+  #schedule-header { background: #f8fafc !important; border-color: #e2e8f0 !important; }
+  #schedule-header .text-slate-300, #schedule-header .text-brand-400, #schedule-header .text-slate-500, #schedule-header .text-brand-300 { color: #1e293b !important; }
+  .text-slate-500 { color: #475569 !important; }
+  .border-slate-800, .border-slate-800\/30, .border-slate-800\/50 { border-color: #e2e8f0 !important; }
+
+  /* Blocos */
+  .schedule-block { opacity: 1 !important; border-radius: 4px !important; font-size: 9pt !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .schedule-block .truncate { overflow: visible !important; text-overflow: unset !important; white-space: normal !important; word-break: break-word !important; }
+}
