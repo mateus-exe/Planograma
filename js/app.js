@@ -300,7 +300,10 @@
     handleKeyboardShortcuts(e) {
       // Escape: fechar qualquer modal aberto
       if (e.key === 'Escape') {
-        if (window.UI) UI.closeAllModals();
+        if (window.UI) {
+          UI.closeEventFocus?.();
+          UI.closeAllModals();
+        }
       }
 
       // Ctrl+N: ir para adicionar tarefa

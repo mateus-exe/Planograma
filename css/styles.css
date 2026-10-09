@@ -28,6 +28,19 @@
 
 .schedule-block { transition: all 0.15s ease; cursor: pointer; }
 .schedule-block:hover { transform: scale(1.02); z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+.schedule-event-selected { position: relative !important; z-index: 50 !important; outline: 3px solid white; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(99,102,241,.75), 0 12px 32px rgba(0,0,0,.65) !important; transform: scale(1.04); }
+.event-focus-panel { position: fixed; z-index: 70; width: min(560px, calc(100vw - 24px)); }
+.event-focus-content { overscroll-behavior: contain; max-height: calc(100dvh - 24px); border-radius: 1rem; padding-bottom: env(safe-area-inset-bottom); }
+.postit-card { touch-action: pan-y; transition: transform .15s ease, opacity .15s ease; }
+.postit-card.is-dragging { opacity: .72; transform: rotate(2deg) scale(.96); }
+.postit-card.is-drop-target { outline: 3px solid #6366f1; outline-offset: 2px; }
+.postit-drag-handle { touch-action: none; cursor: grab; user-select: none; }
+.postit-drag-handle:active { cursor: grabbing; }
+.postit-text { color: #1e293b; min-height: 110px; }
+.postit-hue-slider { appearance: none; height: 12px; border-radius: 999px; background: linear-gradient(90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+.postit-hue-slider::-webkit-slider-thumb { appearance: none; width: 22px; height: 22px; border: 2px solid white; border-radius: 50%; background: #334155; box-shadow: 0 1px 4px #0008; }
+.postit-hue-slider::-moz-range-thumb { width: 18px; height: 18px; border: 2px solid white; border-radius: 50%; background: #334155; box-shadow: 0 1px 4px #0008; }
+body.event-focus-open { overflow: hidden; }
 
 .task-card { transition: all 0.15s ease; }
 .task-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
@@ -62,6 +75,13 @@
 .priority-media { background: #f59e0b; color: white; }
 .priority-baixa { background: #22c55e; color: white; }
 
+@media (max-width: 767px) {
+  .schedule-block { font-size: 10px; }
+  .event-focus-panel { inset: auto 0 0; width: 100%; }
+  .event-focus-content { height: min(88dvh, 760px); max-height: 88dvh; border: 0; border-radius: 1.25rem 1.25rem 0 0; padding-top: env(safe-area-inset-top); }
+  .postit-text { min-height: 120px; font-size: 16px; }
+}
+
 
 /* ================== IMPRESSÃO ================== */
 @media print {
@@ -74,7 +94,7 @@
   #sidebar, #sidebar-overlay, header.lg\:hidden, #fab-add,
   #btn-export-ics, #btn-export-cronograma,
   #btn-prev-week, #btn-next-week, #btn-view-mensal, #btn-view-semanal, #btn-view-diario, #btn-today,
-  #toast-container, #loading-screen, .modal-overlay {
+  #toast-container, #loading-screen, .modal-overlay, #event-focus-backdrop, #event-focus-panel {
     display: none !important;
   }
 

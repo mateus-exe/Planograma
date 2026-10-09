@@ -23,6 +23,44 @@
   let currentView = 'semanal'; // 'semanal' ou 'diario'
   let currentDayIndex = new Date().getDay(); // Para visão diária
   let confirmCallback = null;
+  let focusedEvent = null;
+  let focusOrigin = null;
+
+  function escapeHTML(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[character]);
+  }
+
+  function hexToHsl(hex) {
+    const value = hex.replace('#', '');
+    let r = parseInt(value.slice(0, 2), 16) / 255;
+    let g = parseInt(value.slice(2, 4), 16) / 255;
+    let b = parseInt(value.slice(4, 6), 16) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s = 0;
+    const l = (max + min) / 2;
+    if (max !== min) {
+      const delta = max - min;
+      s = l > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+      if (max === r) h = (g - b) / delta + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / delta + 2;
+      else h = (r - g) / delta + 4;
+      h *= 60;
+    }
+    return { h, s: s * 100, l: l * 100 };
+  }
+
+  function hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const k = n => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => {
+      const color = l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+      return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+  }
 
   // ===================== FUNÇÕES AUXILIARES =====================
 
@@ -102,6 +140,7 @@
     // === INICIALIZAÇÃO ===
     init() {
       this.setupColorPickers();
+      this.setupEventFocus();
       this.applyTheme();
     },
 
@@ -110,6 +149,7 @@
      * Navega para uma seção específica
      */
     navigateTo(section) {
+      if (section !== 'cronograma') this.closeEventFocus();
       // Esconder todas as seções
       document.querySelectorAll('.section').forEach(s => {
         s.classList.remove('active');
@@ -675,6 +715,217 @@
     },
 
     // === CRONOGRAMA ===
+    setupEventFocus() {
+      const backdrop = document.getElementById('event-focus-backdrop');
+      const panel = document.getElementById('event-focus-panel');
+      document.body.addEventListener('click', (event) => {
+        if (event.target.closest('#event-focus-close') || event.target === backdrop) {
+          this.closeEventFocus();
+          return;
+        }
+        if (event.target.closest('#event-add-postit')) {
+          if (!focusedEvent) return;
+          const postit = Storage.addPostit({ eventoId: focusedEvent.id, cor: '#fef08a' });
+          this.renderPostitsDoEvento();
+          document.querySelector(`[data-postit-id="${postit.id}"] .postit-text`)?.focus();
+          return;
+        }
+        const deleteButton = event.target.closest('[data-delete-postit]');
+        if (deleteButton) {
+          Storage.deletePostit(deleteButton.dataset.deletePostit);
+          this.renderPostitsDoEvento();
+          return;
+        }
+        const eventBlock = event.target.closest('[data-event-id]');
+        if (eventBlock && !event.target.closest('button, textarea, input')) {
+          focusOrigin = eventBlock;
+          this.openEventFocus({
+            id: eventBlock.dataset.eventId,
+            name: eventBlock.dataset.eventName,
+            date: eventBlock.dataset.eventDate,
+            start: eventBlock.dataset.eventStart,
+            end: eventBlock.dataset.eventEnd,
+            type: eventBlock.dataset.eventType
+          }, eventBlock);
+        }
+      });
+      document.body.addEventListener('keydown', event => {
+        const eventBlock = event.target.closest('[data-event-id]');
+        if (!eventBlock || !['Enter', ' '].includes(event.key)) return;
+        event.preventDefault();
+        focusOrigin = eventBlock;
+        this.openEventFocus({
+          id: eventBlock.dataset.eventId, name: eventBlock.dataset.eventName,
+          date: eventBlock.dataset.eventDate, start: eventBlock.dataset.eventStart,
+          end: eventBlock.dataset.eventEnd, type: eventBlock.dataset.eventType
+        }, eventBlock);
+      });
+
+      document.body.addEventListener('input', (event) => {
+        const text = event.target.closest('[data-postit-text]');
+        if (text) Storage.updatePostit(text.dataset.postitText, { texto: text.value });
+
+        const hueInput = event.target.closest('[data-postit-hue]');
+        if (!hueInput) return;
+        const card = event.target.closest('[data-postit-id]');
+        if (!card) return;
+        const hsl = hexToHsl(card.dataset.color || '#fef08a');
+        const nextColor = hslToHex(Number(hueInput.value), Math.max(65, hsl.s), Math.min(78, Math.max(48, hsl.l)));
+        card.dataset.color = nextColor;
+        card.style.backgroundColor = nextColor;
+        Storage.updatePostit(card.dataset.postitId, { cor: nextColor });
+      });
+      document.body.addEventListener('change', event => {
+        if (event.target.matches('[data-postit-hue]')) {
+          event.target.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      });
+
+      let drag = null;
+      document.body.addEventListener('pointerdown', event => {
+        const handle = event.target.closest('[data-postit-drag]');
+        if (!handle || event.button !== 0) return;
+        const card = handle.closest('[data-postit-id]');
+        if (!card) return;
+        drag = { id: card.dataset.postitId, pointerId: event.pointerId, card };
+        card.classList.add('is-dragging');
+      });
+      document.body.addEventListener('pointermove', event => {
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        const panelContent = document.getElementById('event-focus-content');
+        const panelBounds = panelContent?.getBoundingClientRect();
+        if (panelBounds && event.clientY < panelBounds.top + 48) panelContent.scrollTop -= 12;
+        else if (panelBounds && event.clientY > panelBounds.bottom - 48) panelContent.scrollTop += 12;
+        const list = document.getElementById('event-postits-list');
+        list?.querySelectorAll('.is-drop-target').forEach(card => card.classList.remove('is-drop-target'));
+        const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-postit-id]');
+        if (target && target !== drag.card && target.parentElement === list) target.classList.add('is-drop-target');
+      });
+      document.body.addEventListener('pointerup', event => {
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        const list = document.getElementById('event-postits-list');
+        const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-postit-id]');
+        drag.card.classList.remove('is-dragging');
+        list?.querySelectorAll('.is-drop-target').forEach(card => card.classList.remove('is-drop-target'));
+        const draggedId = drag.id;
+        drag = null;
+        if (target && target.dataset.postitId !== draggedId && target.parentElement === list) {
+          const orderedIds = [...list.querySelectorAll('[data-postit-id]')].map(card => card.dataset.postitId);
+          const from = orderedIds.indexOf(draggedId);
+          const to = orderedIds.indexOf(target.dataset.postitId);
+          const [moved] = orderedIds.splice(from, 1);
+          const targetBounds = target.getBoundingClientRect();
+          let insertAt = to + (event.clientY > targetBounds.top + targetBounds.height / 2 ? 1 : 0);
+          if (from < insertAt) insertAt--;
+          orderedIds.splice(insertAt, 0, moved);
+          Storage.reorderPostits(focusedEvent.id, orderedIds);
+          this.renderPostitsDoEvento();
+        }
+      });
+      document.body.addEventListener('pointercancel', () => {
+        if (drag) drag.card.classList.remove('is-dragging');
+        drag = null;
+        document.getElementById('event-postits-list')?.querySelectorAll('.is-drop-target').forEach(card => card.classList.remove('is-drop-target'));
+      });
+
+      const repositionPanel = () => this.positionEventFocus();
+      window.addEventListener('resize', repositionPanel);
+      window.addEventListener('scroll', repositionPanel, true);
+
+      panel?.addEventListener('keydown', event => {
+        if (event.key !== 'Tab') return;
+        const focusables = [...panel.querySelectorAll('button, textarea, input[type="range"]')]
+          .filter(element => !element.disabled && element.offsetParent !== null);
+        if (!focusables.length) return;
+        if (event.shiftKey && document.activeElement === focusables[0]) {
+          event.preventDefault(); focusables[focusables.length - 1].focus();
+        } else if (!event.shiftKey && document.activeElement === focusables[focusables.length - 1]) {
+          event.preventDefault(); focusables[0].focus();
+        }
+      });
+    },
+
+    openEventFocus(eventData, anchorElement = focusOrigin) {
+      if (!eventData?.id) return;
+      focusedEvent = eventData;
+      document.querySelectorAll('.schedule-event-selected').forEach(element => element.classList.remove('schedule-event-selected'));
+      document.querySelectorAll('[data-event-id]').forEach(element => {
+        if (element.dataset.eventId === eventData.id) element.classList.add('schedule-event-selected');
+      });
+      document.getElementById('event-focus-meta').textContent = eventData.type === 'tarefa' ? 'Tarefa agendada' : 'Atividade recorrente';
+      document.getElementById('event-focus-title').textContent = eventData.name || 'Evento';
+      document.getElementById('event-focus-time').textContent = `${formatDate(eventData.date)} · ${eventData.start}–${eventData.end}`;
+      document.getElementById('event-focus-backdrop').classList.remove('hidden');
+      const panel = document.getElementById('event-focus-panel');
+      panel.classList.remove('hidden');
+      panel.setAttribute('aria-hidden', 'false');
+      document.getElementById('event-focus-backdrop').setAttribute('aria-hidden', 'false');
+      document.body.classList.add('event-focus-open');
+      this.positionEventFocus(anchorElement);
+      this.renderPostitsDoEvento();
+      document.getElementById('event-focus-close')?.focus();
+    },
+
+    closeEventFocus() {
+      if (!focusedEvent) return;
+      focusedEvent = null;
+      document.querySelectorAll('.schedule-event-selected').forEach(element => element.classList.remove('schedule-event-selected'));
+      document.getElementById('event-focus-backdrop')?.classList.add('hidden');
+      const panel = document.getElementById('event-focus-panel');
+      panel?.classList.add('hidden');
+      panel?.style.removeProperty('top');
+      panel?.style.removeProperty('left');
+      panel?.setAttribute('aria-hidden', 'true');
+      document.getElementById('event-focus-backdrop')?.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('event-focus-open');
+      if (currentSection === 'cronograma') focusOrigin?.focus();
+      focusOrigin = null;
+    },
+
+    positionEventFocus(anchorElement) {
+      const panel = document.getElementById('event-focus-panel');
+      if (!panel || !focusedEvent || panel.classList.contains('hidden')) return;
+      if (window.innerWidth < 768) {
+        panel.style.removeProperty('top');
+        panel.style.removeProperty('left');
+        return;
+      }
+      const anchor = anchorElement?.isConnected ? anchorElement
+        : document.querySelector(`[data-event-id="${CSS.escape(focusedEvent.id)}"].schedule-event-selected`);
+      if (!anchor) return;
+      const eventRect = anchor.getBoundingClientRect();
+      const panelRect = panel.getBoundingClientRect();
+      const margin = 12;
+      const gap = 14;
+      let left = eventRect.right + gap;
+      if (left + panelRect.width > window.innerWidth - margin) {
+        left = eventRect.left - panelRect.width - gap;
+      }
+      left = Math.max(margin, Math.min(left, window.innerWidth - panelRect.width - margin));
+      const top = Math.max(margin, Math.min(eventRect.top, window.innerHeight - panelRect.height - margin));
+      panel.style.left = `${left}px`;
+      panel.style.top = `${top}px`;
+    },
+
+    renderPostitsDoEvento() {
+      const list = document.getElementById('event-postits-list');
+      if (!list || !focusedEvent) return;
+      const postits = Storage.getPostitsDoEvento(focusedEvent.id);
+      document.getElementById('event-postits-empty')?.classList.toggle('hidden', postits.length > 0);
+      list.innerHTML = postits.map(postit => {
+        const hue = Math.round(hexToHsl(postit.cor || '#fef08a').h);
+        return `<article class="postit-card rounded-xl p-3 shadow-lg border border-black/10" data-postit-id="${escapeHTML(postit.id)}" data-color="${escapeHTML(postit.cor || '#fef08a')}" style="background:${escapeHTML(postit.cor || '#fef08a')}">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <button type="button" data-postit-drag class="postit-drag-handle min-w-11 min-h-11 -ml-2 rounded-lg text-slate-700 hover:bg-black/10" aria-label="Arraste para mudar a posição do post-it" title="Arraste para reorganizar"><i class="fas fa-grip-lines" aria-hidden="true"></i><span class="sr-only">Arrastar para mudar a posição</span></button>
+            <button type="button" data-delete-postit="${escapeHTML(postit.id)}" class="min-w-11 min-h-11 rounded-lg text-slate-700 hover:bg-black/10" aria-label="Excluir post-it"><i class="fas fa-trash" aria-hidden="true"></i></button>
+          </div>
+          <label class="block text-xs text-slate-800 mb-1" for="${escapeHTML(postit.id)}-text">Anotação breve</label>
+          <textarea id="${escapeHTML(postit.id)}-text" data-postit-text="${escapeHTML(postit.id)}" maxlength="500" rows="4" placeholder="Escreva uma anotação..." class="postit-text w-full rounded-lg bg-white/55 border border-black/10 p-3 resize-y focus:outline-none focus:ring-2 focus:ring-slate-700" aria-label="Texto do post-it">${escapeHTML(postit.texto)}</textarea>
+          <div class="mt-2 px-1"><label class="block text-[11px] text-slate-700 mb-2" for="${escapeHTML(postit.id)}-hue">Ajuste de cor</label><input id="${escapeHTML(postit.id)}-hue" data-postit-hue type="range" min="0" max="359" value="${hue}" class="postit-hue-slider w-full" aria-label="Ajuste de cor"></div>
+        </article>`;
+      }).join('');
+    },
+
     renderCronograma() {
       this.updateWeekLabel();
       let cronograma = Storage.getCronograma();
@@ -690,6 +941,12 @@
         this.renderMonthlyGrid(cronograma, atividadesFixas, config);
       } else {
         this.renderDailyView(cronograma, atividadesFixas, config);
+      }
+      if (focusedEvent) {
+        document.querySelectorAll('[data-event-id]').forEach(element => {
+          if (element.dataset.eventId === focusedEvent.id) element.classList.add('schedule-event-selected');
+        });
+        this.renderPostitsDoEvento();
       }
     },
 
@@ -814,15 +1071,18 @@
         (a.dias || []).forEach(dia => {
           // Mapear dia (0=Dom...6=Sáb) para coluna (0=Seg...6=Dom)
           let colIndex = dia === 0 ? 6 : dia - 1;
+          const eventDate = weekDates[colIndex];
+          const eventId = `fixa_${a.id}_${eventDate}`;
           const top = timeToY(a.horaInicio);
           const bottom = timeToY(a.horaFim);
           const height = bottom - top;
           const left = 80 + colIndex * ((100 - 80) / 7); // Aproximação
           gridHTML += `
             <div class="schedule-block absolute rounded-lg px-2 py-1 overflow-hidden text-white text-[11px] font-medium"
+              data-event-id="${escapeHTML(eventId)}" data-event-name="${escapeHTML(a.nome)}" data-event-date="${eventDate}" data-event-start="${a.horaInicio}" data-event-end="${a.horaFim}" data-event-type="fixa" role="button" tabindex="0" aria-label="Abrir ${escapeHTML(a.nome)}, ${formatDate(eventDate)}, ${a.horaInicio} a ${a.horaFim}"
               style="top: ${top}px; height: ${Math.max(height, 20)}px; left: calc(80px + ${colIndex} * calc((100% - 80px) / 7) + 2px); width: calc(calc((100% - 80px) / 7) - 4px); background: ${a.cor || '#6366f1'}; opacity: 0.9;"
-              title="${a.nome} (${a.horaInicio} - ${a.horaFim})">
-              <span class="block truncate">${a.nome}</span>
+              title="${escapeHTML(a.nome)} (${a.horaInicio} - ${a.horaFim})">
+              <span class="block truncate">${escapeHTML(a.nome)}</span>
               ${height > 30 ? `<span class="block text-[10px] opacity-75">${a.horaInicio} - ${a.horaFim}</span>` : ''}
             </div>`;
         });
@@ -838,9 +1098,10 @@
             const height = bottom - top;
             gridHTML += `
               <div class="schedule-block absolute rounded-lg px-2 py-1 overflow-hidden text-white text-[11px] font-medium border-2 border-dashed"
+              data-event-id="${escapeHTML(b.id || `tarefa_${b.tarefaId || b.nome}_${b.data}_${b.horaInicio}`)}" data-event-name="${escapeHTML(b.nome)}" data-event-date="${b.data}" data-event-start="${b.horaInicio}" data-event-end="${b.horaFim}" data-event-type="tarefa" role="button" tabindex="0" aria-label="Abrir ${escapeHTML(b.nome)}, ${formatDate(b.data)}, ${b.horaInicio} a ${b.horaFim}"
                 style="top: ${top}px; height: ${Math.max(height, 20)}px; left: calc(80px + ${colIndex} * calc((100% - 80px) / 7) + 2px); width: calc(calc((100% - 80px) / 7) - 4px); background: ${b.cor || '#f59e0b'}90; border-color: ${b.cor || '#f59e0b'};"
-                title="${b.nome} (${b.horaInicio} - ${b.horaFim})">
-                <span class="block truncate">${b.nome}</span>
+              title="${escapeHTML(b.nome)} (${b.horaInicio} - ${b.horaFim})">
+              <span class="block truncate">${escapeHTML(b.nome)}</span>
                 ${height > 30 ? `<span class="block text-[10px] opacity-75">${b.horaInicio} - ${b.horaFim}</span>` : ''}
               </div>`;
           }
@@ -893,12 +1154,12 @@
       const dayBlocks = [];
       atividadesFixas.forEach(a => {
         if ((a.dias || []).includes(dayOfWeek)) {
-          dayBlocks.push({ nome: a.nome, horaInicio: a.horaInicio, horaFim: a.horaFim, cor: a.cor || '#6366f1', tipo: 'fixo', categoria: a.categoria });
+          dayBlocks.push({ id: `fixa_${a.id}_${toISODate(dayDate)}`, data: toISODate(dayDate), nome: a.nome, horaInicio: a.horaInicio, horaFim: a.horaFim, cor: a.cor || '#6366f1', tipo: 'fixa', categoria: a.categoria });
         }
       });
       if (cronograma && cronograma.blocos) {
         cronograma.blocos.filter(b => b.dia === dayOfWeek && b.tipo === 'tarefa').forEach(b => {
-          dayBlocks.push({ nome: b.nome, horaInicio: b.horaInicio, horaFim: b.horaFim, cor: b.cor || '#f59e0b', tipo: 'tarefa' });
+          dayBlocks.push({ id: b.id || `tarefa_${b.tarefaId || b.nome}_${b.data}_${b.horaInicio}`, data: b.data, nome: b.nome, horaInicio: b.horaInicio, horaFim: b.horaFim, cor: b.cor || '#f59e0b', tipo: 'tarefa' });
         });
       }
 
@@ -910,10 +1171,10 @@
         html += '<div class="space-y-2">';
         dayBlocks.forEach(b => {
           html += `
-            <div class="flex items-center gap-4 p-4 rounded-xl bg-slate-800/60 hover:bg-slate-800 transition-colors">
+            <div class="flex items-center gap-4 p-4 rounded-xl bg-slate-800/60 hover:bg-slate-800 transition-colors cursor-pointer" data-event-id="${escapeHTML(b.id)}" data-event-name="${escapeHTML(b.nome)}" data-event-date="${b.data}" data-event-start="${b.horaInicio}" data-event-end="${b.horaFim}" data-event-type="${b.tipo}" role="button" tabindex="0" aria-label="Abrir ${escapeHTML(b.nome)}, ${formatDate(b.data)}, ${b.horaInicio} a ${b.horaFim}">
               <div class="w-1.5 h-14 rounded-full" style="background: ${b.cor}"></div>
               <div class="flex-1">
-                <p class="font-medium text-white">${b.nome}</p>
+                <p class="font-medium text-white">${escapeHTML(b.nome)}</p>
                 <p class="text-sm text-slate-400">${b.horaInicio} - ${b.horaFim}</p>
               </div>
               <span class="text-xs px-2 py-1 rounded-full ${b.tipo === 'fixo' ? 'bg-brand-600/20 text-brand-300' : 'bg-amber-600/20 text-amber-300'}">${b.tipo === 'fixo' ? 'Fixo' : 'Tarefa'}</span>
@@ -1024,14 +1285,15 @@
           const dayIndex = currentDate.getDay();
           atividadesFixas.forEach(a => {
             if (a.dias && a.dias.includes(dayIndex)) {
-              dayActivities += `<div class="text-[10px] truncate text-white rounded px-1.5 py-0.5 mt-1 font-medium bg-opacity-90" style="background:${a.cor || '#6366f1'}">${a.nome}</div>`;
+              const eventId = `fixa_${a.id}_${dateStr}`;
+              dayActivities += `<div class="text-[10px] truncate text-white rounded px-1.5 py-1 mt-1 font-medium bg-opacity-90 cursor-pointer" data-event-id="${escapeHTML(eventId)}" data-event-name="${escapeHTML(a.nome)}" data-event-date="${dateStr}" data-event-start="${a.horaInicio}" data-event-end="${a.horaFim}" data-event-type="fixa" role="button" tabindex="0" aria-label="Abrir ${escapeHTML(a.nome)}, ${formatDate(dateStr)}" style="background:${a.cor || '#6366f1'}">${escapeHTML(a.nome)}</div>`;
             }
           });
           
           if (cronograma && cronograma.blocos) {
             cronograma.blocos.forEach(b => {
               if (b.data === dateStr && b.tipo === 'tarefa') {
-                dayActivities += `<div class="text-[10px] truncate text-white rounded px-1.5 py-0.5 mt-1 border border-dashed font-medium" style="border-color:${b.cor || '#f59e0b'}; background:${b.cor || '#f59e0b'}40;">${b.nome}</div>`;
+                dayActivities += `<div class="text-[10px] truncate text-white rounded px-1.5 py-1 mt-1 border border-dashed font-medium cursor-pointer" data-event-id="${escapeHTML(b.id || `tarefa_${b.tarefaId || b.nome}_${b.data}_${b.horaInicio}`)}" data-event-name="${escapeHTML(b.nome)}" data-event-date="${dateStr}" data-event-start="${b.horaInicio}" data-event-end="${b.horaFim}" data-event-type="tarefa" role="button" tabindex="0" aria-label="Abrir ${escapeHTML(b.nome)}, ${formatDate(dateStr)}" style="border-color:${b.cor || '#f59e0b'}; background:${b.cor || '#f59e0b'}40;">${escapeHTML(b.nome)}</div>`;
               }
             });
           }

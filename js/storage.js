@@ -10,7 +10,8 @@
     CONFIG: PREFIX + 'config',
     ATIVIDADES: PREFIX + 'atividades_fixas',
     TAREFAS: PREFIX + 'tarefas',
-    CRONOGRAMA: PREFIX + 'cronograma'
+    CRONOGRAMA: PREFIX + 'cronograma',
+    POSTITS: PREFIX + 'postits'
   };
 
   const listeners = [];
@@ -255,6 +256,75 @@
       this._notify('cronograma');
     },
 
+    // === POST-ITS DOS EVENTOS ===
+    getPostits() {
+      const postits = this._getItem(KEYS.POSTITS, []);
+      if (!Array.isArray(postits)) return [];
+      return postits.filter(postit => postit && typeof postit.id === 'string' && typeof postit.eventoId === 'string')
+        .map(postit => ({
+          ...postit,
+          texto: typeof postit.texto === 'string' ? postit.texto.slice(0, 500) : '',
+          cor: /^#[0-9a-f]{6}$/i.test(postit.cor || '') ? postit.cor : '#fef08a'
+        }));
+    },
+
+    getPostitsDoEvento(eventoId) {
+      return this.getPostits().filter(postit => postit.eventoId === eventoId)
+        .sort((a, b) => (Number(a.ordem) || 0) - (Number(b.ordem) || 0));
+    },
+
+    addPostit(postit) {
+      if (!postit || typeof postit.eventoId !== 'string' || !postit.eventoId) {
+        throw new Error('Evento inválido para o post-it.');
+      }
+      const novoPostit = {
+        id: this._generateId('postit'),
+        eventoId: postit.eventoId,
+        texto: typeof postit.texto === 'string' ? postit.texto.slice(0, 500) : '',
+        cor: /^#[0-9a-f]{6}$/i.test(postit.cor || '') ? postit.cor : '#fef08a',
+        ordem: this.getPostitsDoEvento(postit.eventoId).length,
+        criadoEm: new Date().toISOString(),
+        atualizadoEm: new Date().toISOString()
+      };
+      const postits = this.getPostits();
+      postits.push(novoPostit);
+      this._setItem(KEYS.POSTITS, postits);
+      this._notify('postits');
+      return novoPostit;
+    },
+
+    updatePostit(id, data) {
+      const postits = this.getPostits();
+      const index = postits.findIndex(postit => postit.id === id);
+      if (index === -1) throw new Error('Post-it não encontrado.');
+      const atualizacao = {};
+      if (typeof data.texto === 'string') atualizacao.texto = data.texto.slice(0, 500);
+      if (typeof data.cor === 'string' && /^#[0-9a-f]{6}$/i.test(data.cor)) atualizacao.cor = data.cor;
+      postits[index] = { ...postits[index], ...atualizacao, atualizadoEm: new Date().toISOString() };
+      this._setItem(KEYS.POSTITS, postits);
+      this._notify('postits');
+      return postits[index];
+    },
+
+    deletePostit(id) {
+      const postits = this.getPostits();
+      const novaLista = postits.filter(postit => postit.id !== id);
+      if (novaLista.length !== postits.length) {
+        this._setItem(KEYS.POSTITS, novaLista);
+        this._notify('postits');
+      }
+    },
+
+    reorderPostits(eventoId, orderedIds) {
+      if (!Array.isArray(orderedIds)) return;
+      const ordemPorId = new Map(orderedIds.map((id, index) => [id, index]));
+      const postits = this.getPostits().map(postit => postit.eventoId === eventoId && ordemPorId.has(postit.id)
+        ? { ...postit, ordem: ordemPorId.get(postit.id), atualizadoEm: new Date().toISOString() }
+        : postit);
+      this._setItem(KEYS.POSTITS, postits);
+      this._notify('postits');
+    },
+
     // === UTILIDADES ===
     /**
      * Exporta todos os dados como uma string JSON.
@@ -265,7 +335,8 @@
         config: this.getConfig(),
         atividadesFixas: this.getAtividadesFixas(),
         tarefas: this.getTarefas(),
-        cronograma: this.getCronograma()
+        cronograma: this.getCronograma(),
+        postits: this.getPostits()
       };
       return JSON.stringify(data);
     },
@@ -287,6 +358,7 @@
         if (Array.isArray(data.atividadesFixas)) this._setItem(KEYS.ATIVIDADES, data.atividadesFixas);
         if (Array.isArray(data.tarefas)) this._setItem(KEYS.TAREFAS, data.tarefas);
         if (data.cronograma) this._setItem(KEYS.CRONOGRAMA, data.cronograma);
+        if (Array.isArray(data.postits)) this._setItem(KEYS.POSTITS, data.postits);
         
         this._notify('all');
       } catch (e) {
@@ -303,6 +375,7 @@
       localStorage.removeItem(KEYS.ATIVIDADES);
       localStorage.removeItem(KEYS.TAREFAS);
       localStorage.removeItem(KEYS.CRONOGRAMA);
+      localStorage.removeItem(KEYS.POSTITS);
       this._notify('all');
     }
   };
