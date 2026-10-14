@@ -361,6 +361,7 @@
         if (Array.isArray(data.postits)) this._setItem(KEYS.POSTITS, data.postits);
         
         this._notify('all');
+        return true;
       } catch (e) {
         console.error(e);
         throw new Error('Falha ao importar dados. O formato do arquivo é inválido ou corrompido.');

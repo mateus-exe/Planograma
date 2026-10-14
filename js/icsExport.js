@@ -4,6 +4,19 @@
  */
 
 /**
+ * Retorna string ISO de uma data (YYYY-MM-DD) respeitando o fuso horário local
+ * @param {Date|string} date
+ * @returns {string}
+ */
+function _toISODate(date) {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+/**
  * Retorna a data da segunda-feira (YYYY-MM-DD) de uma semana que contém a data fornecida.
  * @param {Date} date
  * @returns {string}
@@ -14,7 +27,7 @@ function _getMonday(date) {
     const diff = d.getDate() - day + (day === 0 ? -6 : 1);
     d.setDate(diff);
     d.setHours(12, 0, 0, 0);
-    return d.toISOString().split('T')[0];
+    return _toISODate(d);
 }
 
 /**
@@ -42,7 +55,7 @@ function _getMondaysOfMonth(semanaInicio) {
 
     // Avança semana a semana enquanto o início da semana ainda não passou do último dia do mês
     while (current <= lastDay) {
-        mondays.push(current.toISOString().split('T')[0]);
+        mondays.push(_toISODate(current));
         current.setDate(current.getDate() + 7);
     }
 

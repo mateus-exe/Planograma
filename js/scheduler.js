@@ -42,7 +42,10 @@ const TimeUtils = {
     for (let i = 0; i < 7; i++) {
       const current = new Date(base);
       current.setDate(base.getDate() + i);
-      dates.push(current.toISOString().split('T')[0]);
+      const year = current.getFullYear();
+      const month = String(current.getMonth() + 1).padStart(2, '0');
+      const day = String(current.getDate()).padStart(2, '0');
+      dates.push(`${year}-${month}-${day}`);
     }
     return dates;
   },
@@ -152,14 +155,13 @@ window.Scheduler = {
         const cargaA = this.calcularMinutosOcupados(ocupadosPorDia[a] || []);
         const cargaB = this.calcularMinutosOcupados(ocupadosPorDia[b] || []);
 
-        // Se config.diasUteis estiver ativo, penalizar fins de semana na ordenação
-        if (config.diasUteis) {
+        if (Array.isArray(config.diasUteis) && config.diasUteis.length > 0) {
           const diaA = TimeUtils.getDayOfWeek(a);
           const diaB = TimeUtils.getDayOfWeek(b);
-          const isAFimSemana = diaA === 0 || diaA === 6;
-          const isBFimSemana = diaB === 0 || diaB === 6;
-          if (isAFimSemana && !isBFimSemana) return 1;
-          if (!isAFimSemana && isBFimSemana) return -1;
+          const isAUtil = config.diasUteis.includes(diaA);
+          const isBUtil = config.diasUteis.includes(diaB);
+          if (!isAUtil && isBUtil) return 1;  // Prioriza dia útil A sobre não-útil B
+          if (isAUtil && !isBUtil) return -1; // Prioriza dia útil B sobre não-útil A
         }
 
         return cargaA - cargaB;
@@ -219,11 +221,11 @@ window.Scheduler = {
         }
 
       } else if (tarefa.divisivel) {
-        // Tentar dividir em blocos de no mínimo 30 min ou o tempo restante se for menor
         for (const dataStr of diasPossiveis) {
           if (duracaoRestante <= 0) break;
 
-          const slotsLivres = this.encontrarSlotsLivres(ocupadosPorDia[dataStr], acordar, dormir, intervaloMinimo);
+          // Recalcula os slots livres a cada alocação para respeitar o intervaloMinimo
+          let slotsLivres = this.encontrarSlotsLivres(ocupadosPorDia[dataStr], acordar, dormir, intervaloMinimo);
           
           for (const slot of slotsLivres) {
             if (duracaoRestante <= 0) break;
@@ -245,7 +247,6 @@ window.Scheduler = {
             }
           }
         }
-        
         if (duracaoRestante === 0) {
           sucessoNaAlocacao = true;
         }

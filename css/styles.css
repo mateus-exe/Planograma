@@ -1,4 +1,4 @@
-:root { color-scheme: dark; }
+﻿:root { color-scheme: dark; }
 
 * { scrollbar-width: thin; scrollbar-color: #4b5563 transparent; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -82,6 +82,27 @@ body.event-focus-open { overflow: hidden; }
   .postit-text { min-height: 120px; font-size: 16px; }
 }
 
+@media (min-width: 768px) {
+  .event-focus-panel {
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: min(560px, calc(100vw - 32px)) !important;
+    max-height: calc(100vh - 48px) !important;
+    max-height: calc(100dvh - 48px) !important;
+  }
+  .event-focus-content {
+    max-height: calc(100vh - 48px) !important;
+    max-height: calc(100dvh - 48px) !important;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+#pomodoro-mini-pill {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(99, 102, 241, 0.4);
+}
+
 
 /* ================== IMPRESSÃO ================== */
 @media print {
@@ -141,3 +162,29 @@ body.event-focus-open { overflow: hidden; }
   .schedule-block { opacity: 1 !important; border-radius: 4px !important; font-size: 9pt !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   .schedule-block .truncate { overflow: visible !important; text-overflow: unset !important; white-space: normal !important; word-break: break-word !important; }
 }
+
+/* ================== BANNER NÃO AGENDADAS ================== */
+#banner-nao-agendadas {
+  animation: slideInDown 0.35s ease-out;
+}
+@keyframes slideInDown {
+  from { transform: translateY(-10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ================== POMODORO TIMER ================== */
+#pomodoro-display {
+  font-variant-numeric: tabular-nums;
+  transition: color 0.5s ease;
+  text-shadow: 0 0 20px rgba(99,102,241,0.3);
+}
+#pomodoro-progress {
+  transition: width 1s linear, background-color 0.5s ease;
+}
+#pomodoro-start:active, #pomodoro-reset:active {
+  transform: scale(0.93);
+}
+
+/* ================== COLISÃO VISUAL ================== */
+/* Garante que blocos sobrepostos (coluna estreita) tenham conteúdo acessível */
+.schedule-block { min-width: 24px; }

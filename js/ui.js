@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ui.js - Módulo de Interface do Usuário
  * Planograma - Controlador de toda a manipulação do DOM e interações visuais
  */
@@ -95,10 +95,14 @@
   }
 
   /**
-   * Retorna string ISO de uma data (YYYY-MM-DD)
+   * Retorna string ISO de uma data (YYYY-MM-DD) respeitando o fuso horário local
    */
   function toISODate(date) {
-    return date.toISOString().split('T')[0];
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   /**
@@ -135,13 +139,85 @@
 
   // ===================== MÓDULO UI =====================
 
-  const UI = {
+  /**
+   * Função utilitária de debounce para limitar chamadas de alta frequência
+   */
+  function debounce(fn, delay = 250) {
+    let timer = null;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
+    };
+  }
+
+  // Persistência de post-its com debounce de 250ms para evitar escritas excessivas no localStorage
+  const persistPostitDebounced = debounce((id, data) => {
+    Storage.updatePostit(id, data);
+  }, 250);
+
+
+// Determina a cor do texto ('#0f172a' ou '#ffffff') para contraste com a cor de fundo hex
+function getContrastTextColor(hex) {
+  if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return '#0f172a';
+  const clean = hex.replace('#', '');
+  if (clean.length !== 6) return '#0f172a';
+  const r = parseInt(clean.slice(0, 2), 16) || 0;
+  const g = parseInt(clean.slice(2, 4), 16) || 0;
+  const b = parseInt(clean.slice(4, 6), 16) || 0;
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return yiq >= 135 ? '#0f172a' : '#ffffff';
+}
+
+// Retorna mapa agrupado por eventoId com a contagem e a cor do último post-it adicionado
+function getPostitsCountMap() {
+  const postits = Storage.getPostits() || [];
+  return postits.reduce((acc, p) => {
+    if (!p.eventoId) return acc;
+    if (!acc[p.eventoId]) {
+      acc[p.eventoId] = { count: 0, color: p.cor || '#fef08a', lastPostit: p };
+    }
+    acc[p.eventoId].count++;
+    
+    const cur = acc[p.eventoId].lastPostit;
+    if (!cur) {
+      acc[p.eventoId].lastPostit = p;
+      acc[p.eventoId].color = p.cor || '#fef08a';
+    } else {
+      // O último post-it adicionado no evento (maior criadoEm ou maior ordem)
+      const tNew = p.criadoEm ? new Date(p.criadoEm).getTime() : 0;
+      const tCur = cur.criadoEm ? new Date(cur.criadoEm).getTime() : 0;
+      if (tNew > tCur || (tNew === tCur && (Number(p.ordem) >= Number(cur.ordem)))) {
+        acc[p.eventoId].lastPostit = p;
+        acc[p.eventoId].color = p.cor || '#fef08a';
+      }
+    }
+    return acc;
+  }, {});
+}
+
+function getPostitBadgeHTML(eventId, countMap, isMonthly = false) {
+  const data = countMap ? countMap[eventId] : null;
+  const count = typeof data === 'number' ? data : (data?.count || 0);
+  if (count === 0) return '';
+  const cor = (typeof data === 'object' && data?.color) ? data.color : '#fef08a';
+  const text = count > 1 ? count : '';
+  const textColor = getContrastTextColor(cor);
+
+  if (isMonthly) {
+    return `<span class="postit-badge shrink-0 w-2.5 h-2.5 rounded-full inline-block shadow-sm" style="background-color: ${cor}; border: 1.5px solid rgba(15, 23, 42, 0.9); box-shadow: 0 1px 2px rgba(0,0,0,0.5);" title="${count} anotação(ões) · Cor do último post-it"></span>`;
+  }
+
+  return `<span class="postit-badge absolute top-1 right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold z-10 shadow-sm" style="background-color: ${cor}; color: ${textColor}; border: 1.5px solid rgba(15, 23, 42, 0.85);" title="${count} anotação(ões) · Cor do último post-it">${text}</span>`;
+}
+
+const UI = {
 
     // === INICIALIZAÇÃO ===
     init() {
       this.setupColorPickers();
       this.setupEventFocus();
       this.applyTheme();
+      if (typeof Pomodoro !== 'undefined') Pomodoro.setup(false);
     },
 
     // === NAVEGAÇÃO ===
@@ -299,6 +375,7 @@
       if (!container) return;
 
       const hoje = new Date().getDay();
+      const hojeISO = toISODate(new Date());
       const blocos = [];
 
       // Atividades recorrentes de hoje
@@ -309,7 +386,7 @@
             horaInicio: a.horaInicio,
             horaFim: a.horaFim,
             cor: a.cor || '#6366f1',
-            tipo: 'fixo'
+            tipo: 'fixa'
           });
         }
       });
@@ -317,7 +394,7 @@
       // Tarefas agendadas para hoje
       if (cronograma && cronograma.blocos) {
         cronograma.blocos.forEach(b => {
-          if (b.dia === hoje && b.tipo === 'tarefa') {
+          if (b.data === hojeISO && b.tipo === 'tarefa') {
             blocos.push({
               nome: b.nome,
               horaInicio: b.horaInicio,
@@ -341,10 +418,10 @@
         <div class="flex items-center gap-3 p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors">
           <div class="w-1 h-10 rounded-full" style="background: ${b.cor}"></div>
           <div class="flex-1">
-            <p class="text-sm font-medium text-white">${b.nome}</p>
+            <p class="text-sm font-medium text-white">${escapeHTML(b.nome)}</p>
             <p class="text-xs text-slate-400">${b.horaInicio} - ${b.horaFim}</p>
           </div>
-          <span class="text-[10px] px-2 py-0.5 rounded-full ${b.tipo === 'fixo' ? 'bg-brand-600/20 text-brand-300' : 'bg-amber-600/20 text-amber-300'}">${b.tipo === 'fixo' ? 'Fixo' : 'Tarefa'}</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full ${b.tipo === 'fixa' ? 'bg-brand-600/20 text-brand-300' : 'bg-amber-600/20 text-amber-300'}">${b.tipo === 'fixa' ? 'Fixo' : 'Tarefa'}</span>
         </div>
       `).join('');
     },
@@ -374,8 +451,8 @@
               <div class="flex items-center gap-3">
                 <div class="w-3 h-10 rounded-full" style="background: ${a.cor || '#6366f1'}"></div>
                 <div>
-                  <h4 class="font-medium text-white text-sm">${a.nome}</h4>
-                  <p class="text-xs text-slate-400 mt-0.5">${emoji} ${a.categoria ? a.categoria.charAt(0).toUpperCase() + a.categoria.slice(1) : ''}</p>
+                  <h4 class="font-medium text-white text-sm">${escapeHTML(a.nome)}</h4>
+                  <p class="text-xs text-slate-400 mt-0.5">${emoji} ${a.categoria ? escapeHTML(a.categoria.charAt(0).toUpperCase() + a.categoria.slice(1)) : ''}</p>
                 </div>
               </div>
               <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -432,9 +509,9 @@
 
       Storage.addAtividadeFixa({ nome, categoria, dias, horaInicio, horaFim, cor });
       form.reset();
-      // Resetar cor selecionada
+      // Resetar cor selecionada visualmente sem duplicar event listeners
       form.querySelector('input[name="cor"]').value = '#6366f1';
-      this.setupColorPickers();
+      this.resetColorPicker('color-picker-atividade');
       this.showToast('Atividade adicionada com sucesso!', 'success');
       this.renderAtividadesFixas();
       return true;
@@ -572,10 +649,10 @@
               </button>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
-                  <h4 class="font-medium text-sm ${t.concluida ? 'line-through text-slate-500' : 'text-white'}">${t.nome}</h4>
+                  <h4 class="font-medium text-sm ${t.concluida ? 'line-through text-slate-500' : 'text-white'}">${escapeHTML(t.nome)}</h4>
                   ${getPriorityBadge(t.prioridade)}
                 </div>
-                ${t.descricao ? `<p class="text-xs text-slate-400 mt-1 truncate">${t.descricao}</p>` : ''}
+                ${t.descricao ? `<p class="text-xs text-slate-400 mt-1 truncate">${escapeHTML(t.descricao)}</p>` : ''}
                 <div class="flex items-center gap-4 mt-2 text-xs text-slate-400">
                   <span>${emoji} ${t.categoria ? t.categoria.charAt(0).toUpperCase() + t.categoria.slice(1) : ''}</span>
                   <span><i class="fas fa-clock mr-1"></i>${minutesToReadable(t.duracao || 0)}</span>
@@ -727,6 +804,7 @@
           if (!focusedEvent) return;
           const postit = Storage.addPostit({ eventoId: focusedEvent.id, cor: '#fef08a' });
           this.renderPostitsDoEvento();
+          this.atualizarBadgeDoEventoNoDOM(focusedEvent.id);
           document.querySelector(`[data-postit-id="${postit.id}"] .postit-text`)?.focus();
           return;
         }
@@ -734,6 +812,7 @@
         if (deleteButton) {
           Storage.deletePostit(deleteButton.dataset.deletePostit);
           this.renderPostitsDoEvento();
+          if (focusedEvent?.id) this.atualizarBadgeDoEventoNoDOM(focusedEvent.id);
           return;
         }
         const eventBlock = event.target.closest('[data-event-id]');
@@ -763,7 +842,8 @@
 
       document.body.addEventListener('input', (event) => {
         const text = event.target.closest('[data-postit-text]');
-        if (text) Storage.updatePostit(text.dataset.postitText, { texto: text.value });
+        // Debounce de 250ms para evitar escritas excessivas no localStorage a cada tecla
+        if (text) persistPostitDebounced(text.dataset.postitText, { texto: text.value });
 
         const hueInput = event.target.closest('[data-postit-hue]');
         if (!hueInput) return;
@@ -771,9 +851,11 @@
         if (!card) return;
         const hsl = hexToHsl(card.dataset.color || '#fef08a');
         const nextColor = hslToHex(Number(hueInput.value), Math.max(65, hsl.s), Math.min(78, Math.max(48, hsl.l)));
+        // Atualizar DOM instantaneamente a 60fps; persistir com debounce
         card.dataset.color = nextColor;
         card.style.backgroundColor = nextColor;
-        Storage.updatePostit(card.dataset.postitId, { cor: nextColor });
+        persistPostitDebounced(card.dataset.postitId, { cor: nextColor });
+        if (focusedEvent?.id) this.atualizarBadgeDoEventoNoDOM(focusedEvent.id);
       });
       document.body.addEventListener('change', event => {
         if (event.target.matches('[data-postit-hue]')) {
@@ -820,6 +902,7 @@
           orderedIds.splice(insertAt, 0, moved);
           Storage.reorderPostits(focusedEvent.id, orderedIds);
           this.renderPostitsDoEvento();
+          this.atualizarBadgeDoEventoNoDOM(focusedEvent.id);
         }
       });
       document.body.addEventListener('pointercancel', () => {
@@ -863,6 +946,57 @@
       document.body.classList.add('event-focus-open');
       this.positionEventFocus(anchorElement);
       this.renderPostitsDoEvento();
+
+      // Mostrar/ocultar painel de ações (só para tarefas)
+      const taskActions = document.getElementById('event-task-actions');
+      if (taskActions) {
+        if (eventData.type === 'tarefa') {
+          taskActions.classList.remove('hidden');
+          // Extrair tarefaId do eventData.id (formato: tarefa_<tarefaId>_<data>_<index>)
+          const tarefaId = eventData.id.replace(/^tarefa_/, '').replace(/_\d{4}-\d{2}-\d{2}_\d+$/, '').replace(/_[^_]+_\d+$/, '');
+          const concluirBtn = document.getElementById('btn-concluir-tarefa');
+          const editarBtn = document.getElementById('btn-editar-tarefa-focus');
+          if (concluirBtn) {
+            const newBtn = concluirBtn.cloneNode(true);
+            concluirBtn.parentNode.replaceChild(newBtn, concluirBtn);
+            // Verificar se já concluída
+            const tarefas = Storage.getTarefas();
+            const tarefa = tarefas.find(t => eventData.id.includes(t.id));
+            if (tarefa?.concluida) {
+              newBtn.innerHTML = '<i class="fas fa-undo" aria-hidden="true"></i> Reabrir Tarefa';
+              newBtn.classList.replace('bg-green-700', 'bg-slate-600');
+              newBtn.classList.replace('hover:bg-green-600', 'hover:bg-slate-500');
+            }
+            newBtn.addEventListener('click', () => {
+              const t = Storage.getTarefas().find(t => eventData.id.includes(t.id));
+              if (t) {
+                Storage.toggleTarefaConcluida(t.id);
+                this.showToast(t.concluida ? 'Tarefa reaberta!' : 'Tarefa concluída! 🎉', 'success');
+                Pomodoro.resetar();
+                this.closeEventFocus();
+                if (currentSection === 'tarefas') this.renderTarefas();
+                this.atualizarCronogramaAutomaticamente();
+              }
+            });
+          }
+          if (editarBtn) {
+            const newEditBtn = editarBtn.cloneNode(true);
+            editarBtn.parentNode.replaceChild(newEditBtn, editarBtn);
+            newEditBtn.addEventListener('click', () => {
+              const t = Storage.getTarefas().find(t => eventData.id.includes(t.id));
+              if (t) this.openEditTarefa(t.id);
+            });
+          }
+          // Atualizar UI do Pomodoro sem resetar se já estiver rodando
+          Pomodoro.setup(false, eventData);
+        } else {
+          taskActions.classList.add('hidden');
+        }
+      }
+
+      // Esconder mini-pill se o painel de foco estiver aberto
+      Pomodoro.hideMiniPill();
+
       document.getElementById('event-focus-close')?.focus();
     },
 
@@ -878,6 +1012,8 @@
       panel?.setAttribute('aria-hidden', 'true');
       document.getElementById('event-focus-backdrop')?.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('event-focus-open');
+      // Pomodoro continua rodando em background ao fechar o painel (mostra mini-pill se ativo)
+      Pomodoro.renderMiniPill();
       if (currentSection === 'cronograma') focusOrigin?.focus();
       focusOrigin = null;
     },
@@ -885,26 +1021,33 @@
     positionEventFocus(anchorElement) {
       const panel = document.getElementById('event-focus-panel');
       if (!panel || !focusedEvent || panel.classList.contains('hidden')) return;
-      if (window.innerWidth < 768) {
-        panel.style.removeProperty('top');
-        panel.style.removeProperty('left');
-        return;
-      }
-      const anchor = anchorElement?.isConnected ? anchorElement
-        : document.querySelector(`[data-event-id="${CSS.escape(focusedEvent.id)}"].schedule-event-selected`);
-      if (!anchor) return;
-      const eventRect = anchor.getBoundingClientRect();
-      const panelRect = panel.getBoundingClientRect();
-      const margin = 12;
-      const gap = 14;
-      let left = eventRect.right + gap;
-      if (left + panelRect.width > window.innerWidth - margin) {
-        left = eventRect.left - panelRect.width - gap;
-      }
-      left = Math.max(margin, Math.min(left, window.innerWidth - panelRect.width - margin));
-      const top = Math.max(margin, Math.min(eventRect.top, window.innerHeight - panelRect.height - margin));
-      panel.style.left = `${left}px`;
-      panel.style.top = `${top}px`;
+      // Garante que o painel use as regras de centralização perfeita do CSS sem inline top/left
+      panel.style.removeProperty('top');
+      panel.style.removeProperty('left');
+    },
+
+    /**
+     * Atualiza em tempo real a bolinha colorida do evento no DOM com a cor do último post-it
+     */
+    atualizarBadgeDoEventoNoDOM(eventoId) {
+      if (!eventoId) return;
+      const countMap = getPostitsCountMap();
+      const isMonthly = currentView === 'mensal';
+      const novoBadgeHTML = getPostitBadgeHTML(eventoId, countMap, isMonthly);
+
+      document.querySelectorAll(`[data-event-id="${CSS.escape(eventoId)}"]`).forEach(el => {
+        const badgeExistente = el.querySelector('.postit-badge');
+        if (badgeExistente) {
+          badgeExistente.remove();
+        }
+        if (novoBadgeHTML) {
+          if (isMonthly) {
+            el.insertAdjacentHTML('beforeend', novoBadgeHTML);
+          } else {
+            el.insertAdjacentHTML('afterbegin', novoBadgeHTML);
+          }
+        }
+      });
     },
 
     renderPostitsDoEvento() {
@@ -935,6 +1078,9 @@
       const atividadesFixas = Storage.getAtividadesFixas();
       const config = Storage.getConfig();
 
+      // Exibir banner de tarefas não agendadas
+      this.renderBannerNaoAgendadas(cronograma);
+
       if (currentView === 'semanal') {
         this.renderWeeklyGrid(cronograma, atividadesFixas, config);
       } else if (currentView === 'mensal') {
@@ -947,6 +1093,50 @@
           if (element.dataset.eventId === focusedEvent.id) element.classList.add('schedule-event-selected');
         });
         this.renderPostitsDoEvento();
+      }
+    },
+
+    /**
+     * Exibe o banner de alerta para tarefas não agendadas
+     */
+    renderBannerNaoAgendadas(cronograma) {
+      const banner = document.getElementById('banner-nao-agendadas');
+      const list = document.getElementById('banner-nao-agendadas-list');
+      if (!banner || !list) return;
+
+      const naoAgendadas = cronograma?.naoAgendadas || [];
+      if (naoAgendadas.length === 0) {
+        banner.classList.add('hidden');
+        return;
+      }
+
+      list.innerHTML = naoAgendadas.map(item => {
+        const t = item.tarefa;
+        const prazoStr = t.prazo ? ` · prazo: ${formatDate(t.prazo)}` : '';
+        const tarefaId = escapeHTML(t.id);
+        return `
+          <li class="flex items-center justify-between gap-2 bg-amber-900/20 rounded-lg px-3 py-1.5">
+            <span class="text-xs text-amber-200 truncate flex-1">
+              <i class="fas fa-tasks mr-1 opacity-60"></i>
+              <strong>${escapeHTML(t.nome)}</strong>${prazoStr}
+            </span>
+            <button
+              class="shrink-0 text-xs px-2.5 py-1 rounded-lg bg-amber-600/40 hover:bg-amber-600/70 text-amber-200 font-medium transition-colors whitespace-nowrap"
+              onclick="UI.openEditTarefa('${tarefaId}')"
+              title="Editar tarefa para ajustar prazo ou dias">
+              <i class="fas fa-pen mr-1"></i>Editar
+            </button>
+          </li>`;
+      }).join('');
+
+      banner.classList.remove('hidden');
+
+      // Botão de fechar
+      const dismissBtn = document.getElementById('btn-dismiss-banner');
+      if (dismissBtn) {
+        const newBtn = dismissBtn.cloneNode(true);
+        dismissBtn.parentNode.replaceChild(newBtn, dismissBtn);
+        newBtn.addEventListener('click', () => banner.classList.add('hidden'));
       }
     },
 
@@ -1027,6 +1217,7 @@
      * Renderiza a grade semanal do cronograma
      */
     renderWeeklyGrid(cronograma, atividadesFixas, config) {
+      const pCounts = getPostitsCountMap();
       const body = document.getElementById('schedule-body');
       if (!body) return;
 
@@ -1059,7 +1250,7 @@
         return ((h - startHour) + m / 60) * rowHeight;
       };
 
-      // Renderizar blocos de atividades recorrentes
+      // Construir lista de todos os blocos da semana para calcular colisões
       const weekDates = [];
       for (let i = 0; i < 7; i++) {
         const d = new Date(currentWeekStart);
@@ -1067,46 +1258,134 @@
         weekDates.push(toISODate(d));
       }
 
+      // Coletar todos os blocos a renderizar (por coluna)
+      const blocosPorColuna = Array.from({ length: 7 }, () => []);
+
       atividadesFixas.forEach(a => {
         (a.dias || []).forEach(dia => {
-          // Mapear dia (0=Dom...6=Sáb) para coluna (0=Seg...6=Dom)
           let colIndex = dia === 0 ? 6 : dia - 1;
           const eventDate = weekDates[colIndex];
           const eventId = `fixa_${a.id}_${eventDate}`;
-          const top = timeToY(a.horaInicio);
-          const bottom = timeToY(a.horaFim);
-          const height = bottom - top;
-          const left = 80 + colIndex * ((100 - 80) / 7); // Aproximação
-          gridHTML += `
-            <div class="schedule-block absolute rounded-lg px-2 py-1 overflow-hidden text-white text-[11px] font-medium"
-              data-event-id="${escapeHTML(eventId)}" data-event-name="${escapeHTML(a.nome)}" data-event-date="${eventDate}" data-event-start="${a.horaInicio}" data-event-end="${a.horaFim}" data-event-type="fixa" role="button" tabindex="0" aria-label="Abrir ${escapeHTML(a.nome)}, ${formatDate(eventDate)}, ${a.horaInicio} a ${a.horaFim}"
-              style="top: ${top}px; height: ${Math.max(height, 20)}px; left: calc(80px + ${colIndex} * calc((100% - 80px) / 7) + 2px); width: calc(calc((100% - 80px) / 7) - 4px); background: ${a.cor || '#6366f1'}; opacity: 0.9;"
-              title="${escapeHTML(a.nome)} (${a.horaInicio} - ${a.horaFim})">
-              <span class="block truncate">${escapeHTML(a.nome)}</span>
-              ${height > 30 ? `<span class="block text-[10px] opacity-75">${a.horaInicio} - ${a.horaFim}</span>` : ''}
-            </div>`;
+          blocosPorColuna[colIndex].push({
+            eventId, nome: a.nome, data: eventDate,
+            horaInicio: a.horaInicio, horaFim: a.horaFim,
+            cor: a.cor || '#6366f1', tipo: 'fixa',
+            extraStyle: `background: ${a.cor || '#6366f1'}; opacity: 0.9;`,
+            extraClass: ''
+          });
         });
       });
 
-      // Renderizar blocos de tarefas agendadas
       if (cronograma && cronograma.blocos) {
         cronograma.blocos.forEach(b => {
           if (b.tipo === 'tarefa') {
             let colIndex = b.dia === 0 ? 6 : b.dia - 1;
-            const top = timeToY(b.horaInicio);
-            const bottom = timeToY(b.horaFim);
-            const height = bottom - top;
-            gridHTML += `
-              <div class="schedule-block absolute rounded-lg px-2 py-1 overflow-hidden text-white text-[11px] font-medium border-2 border-dashed"
-              data-event-id="${escapeHTML(b.id || `tarefa_${b.tarefaId || b.nome}_${b.data}_${b.horaInicio}`)}" data-event-name="${escapeHTML(b.nome)}" data-event-date="${b.data}" data-event-start="${b.horaInicio}" data-event-end="${b.horaFim}" data-event-type="tarefa" role="button" tabindex="0" aria-label="Abrir ${escapeHTML(b.nome)}, ${formatDate(b.data)}, ${b.horaInicio} a ${b.horaFim}"
-                style="top: ${top}px; height: ${Math.max(height, 20)}px; left: calc(80px + ${colIndex} * calc((100% - 80px) / 7) + 2px); width: calc(calc((100% - 80px) / 7) - 4px); background: ${b.cor || '#f59e0b'}90; border-color: ${b.cor || '#f59e0b'};"
-              title="${escapeHTML(b.nome)} (${b.horaInicio} - ${b.horaFim})">
-              <span class="block truncate">${escapeHTML(b.nome)}</span>
-                ${height > 30 ? `<span class="block text-[10px] opacity-75">${b.horaInicio} - ${b.horaFim}</span>` : ''}
-              </div>`;
+            const eventId = b.id || `tarefa_${b.tarefaId || b.nome}_${b.data}_${b.horaInicio}`;
+            blocosPorColuna[colIndex].push({
+              eventId, nome: b.nome, data: b.data,
+              horaInicio: b.horaInicio, horaFim: b.horaFim,
+              cor: b.cor || '#f59e0b', tipo: 'tarefa',
+              extraStyle: `background: ${b.cor || '#f59e0b'}90; border: 2px dashed ${b.cor || '#f59e0b'};`,
+              extraClass: ''
+            });
           }
         });
       }
+
+      /**
+       * Cálculo de colisão visual: agrupa blocos que se sobrepõem em "clusters"
+       * e distribui cada um em colunas visuais dentro da coluna do dia.
+       */
+      function calcularLayoutColisoes(blocos, timeToYFn) {
+        // Converter horaInicio/horaFim para minutos para facilitar comparação
+        const toMin = str => { const [h, m] = str.split(':').map(Number); return h * 60 + m; };
+        const items = blocos.map((b, idx) => ({
+          ...b, idx,
+          startMin: toMin(b.horaInicio),
+          endMin: toMin(b.horaFim),
+          col: 0,   // coluna visual dentro do cluster
+          total: 1  // total de colunas no cluster
+        }));
+
+        // Ordenar por hora de início
+        items.sort((a, b) => a.startMin - b.startMin);
+
+        // Agrupar em clusters de blocos sobrepostos
+        const clusters = [];
+        let current = [];
+        let maxEnd = -Infinity;
+
+        items.forEach(item => {
+          if (current.length > 0 && item.startMin >= maxEnd) {
+            clusters.push([...current]);
+            current = [];
+            maxEnd = -Infinity;
+          }
+          current.push(item);
+          maxEnd = Math.max(maxEnd, item.endMin);
+        });
+        if (current.length > 0) clusters.push(current);
+
+        // Para cada cluster, atribuir colunas visuais sem sobreposição
+        clusters.forEach(cluster => {
+          const ncols = cluster.length;
+          // Algoritmo guloso de coloração de intervalos
+          const cols = []; // cada posição: lista de itens nessa coluna visual
+          cluster.forEach(item => {
+            let placed = false;
+            for (let c = 0; c < cols.length; c++) {
+              const last = cols[c][cols[c].length - 1];
+              if (last.endMin <= item.startMin) {
+                item.col = c;
+                cols[c].push(item);
+                placed = true;
+                break;
+              }
+            }
+            if (!placed) {
+              item.col = cols.length;
+              cols.push([item]);
+            }
+          });
+          const totalCols = cols.length;
+          cluster.forEach(item => { item.total = totalCols; });
+        });
+
+        return items;
+      }
+
+      // Renderizar blocos com cálculo de colisão por coluna do dia
+      blocosPorColuna.forEach((blocos, colIndex) => {
+        if (blocos.length === 0) return;
+        const layoutItems = calcularLayoutColisoes(blocos, timeToY);
+        layoutItems.forEach(item => {
+          const badge = getPostitBadgeHTML(item.eventId, pCounts);
+          const top = timeToY(item.horaInicio);
+          const bottom = timeToY(item.horaFim);
+          const height = bottom - top;
+          // Largura e left ajustados para colisão
+          const colW = `calc((100% - 80px) / 7)`;
+          const slotW = `calc(${colW} / ${item.total})`;
+          const leftBase = `calc(80px + ${colIndex} * ${colW} + ${item.col} * ${slotW} + 2px)`;
+          const widthFinal = `calc(${slotW} - 4px)`;
+          gridHTML += `
+            <div class="schedule-block absolute rounded-lg px-2 py-1 overflow-hidden text-white text-[11px] font-medium ${item.extraClass}"
+              data-event-id="${escapeHTML(item.eventId)}"
+              data-event-name="${escapeHTML(item.nome)}"
+              data-event-date="${item.data}"
+              data-event-start="${item.horaInicio}"
+              data-event-end="${item.horaFim}"
+              data-event-type="${item.tipo}"
+              role="button" tabindex="0"
+              aria-label="Abrir ${escapeHTML(item.nome)}, ${formatDate(item.data)}, ${item.horaInicio} a ${item.horaFim}"
+              style="top: ${top}px; height: ${Math.max(height, 20)}px; left: ${leftBase}; width: ${widthFinal}; ${item.extraStyle}"
+              title="${escapeHTML(item.nome)} (${item.horaInicio} - ${item.horaFim})">
+              ${badge}
+              <span class="block truncate">${escapeHTML(item.nome)}</span>
+              ${height > 30 ? `<span class="block text-[10px] opacity-75">${item.horaInicio} - ${item.horaFim}</span>` : ''}
+            </div>`;
+        });
+      });
 
       // Indicador de hora atual
       if (!isPrinting) {
@@ -1135,6 +1414,7 @@
      * Renderiza a visão diária
      */
     renderDailyView(cronograma, atividadesFixas, config) {
+      const pCountsDaily = getPostitsCountMap();
       const body = document.getElementById('schedule-body');
       if (!body) return;
 
@@ -1157,8 +1437,9 @@
           dayBlocks.push({ id: `fixa_${a.id}_${toISODate(dayDate)}`, data: toISODate(dayDate), nome: a.nome, horaInicio: a.horaInicio, horaFim: a.horaFim, cor: a.cor || '#6366f1', tipo: 'fixa', categoria: a.categoria });
         }
       });
+      const dayDateISO = toISODate(dayDate);
       if (cronograma && cronograma.blocos) {
-        cronograma.blocos.filter(b => b.dia === dayOfWeek && b.tipo === 'tarefa').forEach(b => {
+        cronograma.blocos.filter(b => b.data === dayDateISO && b.tipo === 'tarefa').forEach(b => {
           dayBlocks.push({ id: b.id || `tarefa_${b.tarefaId || b.nome}_${b.data}_${b.horaInicio}`, data: b.data, nome: b.nome, horaInicio: b.horaInicio, horaFim: b.horaFim, cor: b.cor || '#f59e0b', tipo: 'tarefa' });
         });
       }
@@ -1168,16 +1449,19 @@
       if (dayBlocks.length === 0) {
         html += '<p class="text-slate-500 text-sm text-center py-8">Nenhuma atividade para este dia.</p>';
       } else {
+        const pCountsDaily = getPostitsCountMap();
         html += '<div class="space-y-2">';
         dayBlocks.forEach(b => {
+          const badge = getPostitBadgeHTML(b.id, pCountsDaily);
           html += `
-            <div class="flex items-center gap-4 p-4 rounded-xl bg-slate-800/60 hover:bg-slate-800 transition-colors cursor-pointer" data-event-id="${escapeHTML(b.id)}" data-event-name="${escapeHTML(b.nome)}" data-event-date="${b.data}" data-event-start="${b.horaInicio}" data-event-end="${b.horaFim}" data-event-type="${b.tipo}" role="button" tabindex="0" aria-label="Abrir ${escapeHTML(b.nome)}, ${formatDate(b.data)}, ${b.horaInicio} a ${b.horaFim}">
+            <div class="relative flex items-center gap-4 p-4 rounded-xl bg-slate-800/60 hover:bg-slate-800 transition-colors cursor-pointer" data-event-id="${escapeHTML(b.id)}" data-event-name="${escapeHTML(b.nome)}" data-event-date="${b.data}" data-event-start="${b.horaInicio}" data-event-end="${b.horaFim}" data-event-type="${b.tipo}" role="button" tabindex="0" aria-label="Abrir ${escapeHTML(b.nome)}, ${formatDate(b.data)}, ${b.horaInicio} a ${b.horaFim}">
+              ${badge}
               <div class="w-1.5 h-14 rounded-full" style="background: ${b.cor}"></div>
               <div class="flex-1">
                 <p class="font-medium text-white">${escapeHTML(b.nome)}</p>
                 <p class="text-sm text-slate-400">${b.horaInicio} - ${b.horaFim}</p>
               </div>
-              <span class="text-xs px-2 py-1 rounded-full ${b.tipo === 'fixo' ? 'bg-brand-600/20 text-brand-300' : 'bg-amber-600/20 text-amber-300'}">${b.tipo === 'fixo' ? 'Fixo' : 'Tarefa'}</span>
+              <span class="text-xs px-2 py-1 rounded-full ${b.tipo === 'fixa' ? 'bg-brand-600/20 text-brand-300' : 'bg-amber-600/20 text-amber-300'}">${b.tipo === 'fixa' ? 'Fixo' : 'Tarefa'}</span>
             </div>`;
         });
         html += '</div>';
@@ -1252,6 +1536,7 @@
      * Renderiza a visão mensal
      */
     renderMonthlyGrid(cronograma, atividadesFixas, config) {
+      const pCountsMonthly = getPostitsCountMap();
       const body = document.getElementById('schedule-body');
       if (!body) return;
 
@@ -1271,6 +1556,21 @@
       let totalDays = (lastDayOfMonth.getTime() - startDay.getTime()) / (1000 * 60 * 60 * 24) + 1;
       let totalWeeks = Math.ceil(totalDays / 7);
 
+      // Gerar blocos de tarefas para TODAS as semanas visíveis do mês (Bug 2.6)
+      const tarefasPendentes = window.Storage ? Storage.getTarefas().filter(t => !t.concluida) : [];
+      const blocosTarefasMes = [];
+      if (window.Scheduler) {
+        let tempMonday = new Date(startDay);
+        for (let w = 0; w < totalWeeks; w++) {
+          const mondayISO = toISODate(tempMonday);
+          const cronSemana = Scheduler.gerarCronograma(config, atividadesFixas, tarefasPendentes, mondayISO);
+          if (cronSemana && cronSemana.blocos) {
+            blocosTarefasMes.push(...cronSemana.blocos.filter(b => b.tipo === 'tarefa'));
+          }
+          tempMonday.setDate(tempMonday.getDate() + 7);
+        }
+      }
+
       let gridHTML = '<div class="flex flex-col min-h-[600px] border-l border-slate-800 bg-slate-900">';
       
       let currentDate = new Date(startDay);
@@ -1286,17 +1586,24 @@
           atividadesFixas.forEach(a => {
             if (a.dias && a.dias.includes(dayIndex)) {
               const eventId = `fixa_${a.id}_${dateStr}`;
-              dayActivities += `<div class="text-[10px] truncate text-white rounded px-1.5 py-1 mt-1 font-medium bg-opacity-90 cursor-pointer" data-event-id="${escapeHTML(eventId)}" data-event-name="${escapeHTML(a.nome)}" data-event-date="${dateStr}" data-event-start="${a.horaInicio}" data-event-end="${a.horaFim}" data-event-type="fixa" role="button" tabindex="0" aria-label="Abrir ${escapeHTML(a.nome)}, ${formatDate(dateStr)}" style="background:${a.cor || '#6366f1'}">${escapeHTML(a.nome)}</div>`;
+              const badge = getPostitBadgeHTML(eventId, pCountsMonthly, true);
+              dayActivities += `<div class="relative flex items-center justify-between text-[10px] text-white rounded px-2 py-1 mt-1 font-medium bg-opacity-90 cursor-pointer hover:brightness-110 transition-all" data-event-id="${escapeHTML(eventId)}" data-event-name="${escapeHTML(a.nome)}" data-event-date="${dateStr}" data-event-start="${a.horaInicio}" data-event-end="${a.horaFim}" data-event-type="fixa" role="button" tabindex="0" aria-label="Abrir ${escapeHTML(a.nome)}, ${formatDate(dateStr)}" style="background:${a.cor || '#6366f1'}">
+                <span class="truncate flex-1 mr-1">${escapeHTML(a.nome)}</span>
+                ${badge}
+              </div>`;
             }
           });
-          
-          if (cronograma && cronograma.blocos) {
-            cronograma.blocos.forEach(b => {
-              if (b.data === dateStr && b.tipo === 'tarefa') {
-                dayActivities += `<div class="text-[10px] truncate text-white rounded px-1.5 py-1 mt-1 border border-dashed font-medium cursor-pointer" data-event-id="${escapeHTML(b.id || `tarefa_${b.tarefaId || b.nome}_${b.data}_${b.horaInicio}`)}" data-event-name="${escapeHTML(b.nome)}" data-event-date="${dateStr}" data-event-start="${b.horaInicio}" data-event-end="${b.horaFim}" data-event-type="tarefa" role="button" tabindex="0" aria-label="Abrir ${escapeHTML(b.nome)}, ${formatDate(dateStr)}" style="border-color:${b.cor || '#f59e0b'}; background:${b.cor || '#f59e0b'}40;">${escapeHTML(b.nome)}</div>`;
-              }
-            });
-          }
+
+          blocosTarefasMes.forEach(b => {
+            if (b.data === dateStr) {
+              const eventId = b.id || `tarefa_${b.tarefaId || b.nome}_${b.data}_${b.horaInicio}`;
+              const badge = getPostitBadgeHTML(eventId, pCountsMonthly, true);
+              dayActivities += `<div class="relative flex items-center justify-between text-[10px] text-white rounded px-2 py-1 mt-1 border border-dashed font-medium cursor-pointer hover:brightness-110 transition-all" data-event-id="${escapeHTML(eventId)}" data-event-name="${escapeHTML(b.nome)}" data-event-date="${dateStr}" data-event-start="${b.horaInicio}" data-event-end="${b.horaFim}" data-event-type="tarefa" role="button" tabindex="0" aria-label="Abrir ${escapeHTML(b.nome)}, ${formatDate(dateStr)}" style="border-color:${b.cor || '#f59e0b'}; background:${b.cor || '#f59e0b'}40;">
+                <span class="truncate flex-1 mr-1">${escapeHTML(b.nome)}</span>
+                ${badge}
+              </div>`;
+            }
+          });
 
           gridHTML += `
             <div class="flex-1 p-2 border-r border-slate-800 ${isCurrentMonth ? '' : 'bg-slate-900/50'}">
@@ -1416,7 +1723,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Planograma_backup_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `Planograma_backup_${toISODate(new Date())}.json`;
       a.click();
       URL.revokeObjectURL(url);
       this.showToast('Dados exportados com sucesso!', 'success');
@@ -1565,6 +1872,19 @@
       });
     },
 
+    /**
+     * Reseta o estado visual de seleção do color picker sem duplicar event listeners
+     * @param {string} pickerId - ID do elemento picker
+     * @param {string} defaultColor - Cor padrão a selecionar
+     */
+    resetColorPicker(pickerId, defaultColor = '#6366f1') {
+      const picker = document.getElementById(pickerId);
+      if (!picker) return;
+      picker.querySelectorAll('.color-option').forEach(opt => {
+        opt.classList.toggle('selected', opt.dataset.color === defaultColor);
+      });
+    },
+
     // === UTILIDADES PÚBLICAS ===
     formatDate,
     formatTime(timeStr) { return timeStr || ''; },
@@ -1573,6 +1893,371 @@
     getCurrentWeekStart() { return currentWeekStart; },
   };
 
+  // ===================== MÓDULO POMODORO =====================
+  /**
+   * Gerenciador do Timer Pomodoro integrado ao painel de foco e background.
+   * Mantém estado persistente de sessões e continua rodando com menu fechado.
+   */
+  const POMODORO_DURATIONS = { work: 25 * 60, short: 5 * 60, long: 15 * 60 };
+  const POMODORO_STORAGE_KEY = 'Planograna_pomodoro_sessions';
+
+  const Pomodoro = {
+    _timer: null,
+    _remaining: POMODORO_DURATIONS.work,
+    _total: POMODORO_DURATIONS.work,
+    _running: false,
+    _mode: 'work', // 'work' | 'short' | 'long'
+    _targetEndTime: null,
+    _currentEvent: null,
+
+    setup(reset = false, eventData = null) {
+      if (eventData) {
+        this._currentEvent = eventData;
+      }
+      if (reset || (!this._running && this._remaining === this._total)) {
+        this._mode = 'work';
+        this._remaining = POMODORO_DURATIONS.work;
+        this._total = POMODORO_DURATIONS.work;
+        this._running = false;
+        if (this._timer) {
+          clearInterval(this._timer);
+          this._timer = null;
+        }
+      }
+      this._render();
+      this._bindButtons();
+      this.renderMiniPill();
+    },
+
+    _bindButtons() {
+      ['work', 'short', 'long'].forEach(mode => {
+        const btn = document.getElementById(`pomodoro-mode-${mode}`);
+        if (!btn) return;
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        newBtn.addEventListener('click', () => this.setMode(mode));
+      });
+
+      const startBtn = document.getElementById('pomodoro-start');
+      if (startBtn) {
+        const newBtn = startBtn.cloneNode(true);
+        startBtn.parentNode.replaceChild(newBtn, startBtn);
+        newBtn.addEventListener('click', () => this._running ? this.pausar() : this.iniciar());
+      }
+
+      const resetBtn = document.getElementById('pomodoro-reset');
+      if (resetBtn) {
+        const newBtn = resetBtn.cloneNode(true);
+        resetBtn.parentNode.replaceChild(newBtn, resetBtn);
+        newBtn.addEventListener('click', () => this.resetar());
+      }
+
+      // Mini Pill bindings
+      const miniPill = document.getElementById('pomodoro-mini-pill');
+      if (miniPill) {
+        miniPill.onclick = (e) => {
+          if (e.target.closest('#pomodoro-mini-pause-btn')) return;
+          if (this._currentEvent && window.UI) {
+            UI.openEventFocus(this._currentEvent);
+          } else {
+            window.location.hash = 'cronograma';
+          }
+        };
+      }
+
+      const miniPause = document.getElementById('pomodoro-mini-pause-btn');
+      if (miniPause) {
+        miniPause.onclick = (e) => {
+          e.stopPropagation();
+          this._running ? this.pausar() : this.iniciar();
+        };
+      }
+    },
+
+    setMode(mode) {
+      this.resetar();
+      this._mode = mode;
+      this._remaining = POMODORO_DURATIONS[mode];
+      this._total = POMODORO_DURATIONS[mode];
+      this._render();
+      this._updateModeButtons();
+      this.renderMiniPill();
+    },
+
+    _updateModeButtons() {
+      ['work', 'short', 'long'].forEach(m => {
+        const btn = document.getElementById(`pomodoro-mode-${m}`);
+        if (!btn) return;
+        btn.classList.toggle('bg-brand-600', m === this._mode);
+        btn.classList.toggle('text-white', m === this._mode);
+        btn.classList.toggle('bg-slate-700', m !== this._mode);
+        btn.classList.toggle('text-slate-400', m !== this._mode);
+      });
+    },
+
+    iniciar() {
+      if (this._running) return;
+      this._running = true;
+      this._targetEndTime = Date.now() + this._remaining * 1000;
+      this._render();
+      this.renderMiniPill();
+
+      if (this._timer) clearInterval(this._timer);
+      this._timer = setInterval(() => {
+        const now = Date.now();
+        const diff = Math.max(0, Math.round((this._targetEndTime - now) / 1000));
+        this._remaining = diff;
+
+        if (this._remaining <= 0) {
+          this._remaining = 0;
+          this._running = false;
+          clearInterval(this._timer);
+          this._timer = null;
+          this._render();
+          this.renderMiniPill();
+          this._onComplete();
+        } else {
+          this._render();
+          this.renderMiniPill();
+        }
+      }, 500);
+    },
+
+    pausar() {
+      if (!this._running) return;
+      this._running = false;
+      if (this._timer) {
+        clearInterval(this._timer);
+        this._timer = null;
+      }
+      this._render();
+      this.renderMiniPill();
+    },
+
+    resetar() {
+      this._running = false;
+      if (this._timer) {
+        clearInterval(this._timer);
+        this._timer = null;
+      }
+      this._remaining = POMODORO_DURATIONS[this._mode || 'work'];
+      this._total = this._remaining;
+      this._render();
+      this.renderMiniPill();
+    },
+
+    playChime() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // Acorde alegre de sino (Dó Maior)
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          const startTime = ctx.currentTime + idx * 0.12;
+          gain.gain.setValueAtTime(0.25, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.8);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(startTime);
+          osc.stop(startTime + 0.85);
+        });
+      } catch (err) {
+        console.warn('AudioContext not allowed or not supported', err);
+      }
+    },
+
+    _onComplete() {
+      // 1. Tocar sino sonoro
+      this.playChime();
+
+      // 2. Incrementar estatística de sessões no modo foco
+      if (this._mode === 'work') {
+        const key = POMODORO_STORAGE_KEY;
+        const today = new Date().toISOString().slice(0, 10);
+        let data = {};
+        try { data = JSON.parse(localStorage.getItem(key) || '{}'); } catch {}
+        data[today] = (data[today] || 0) + 1;
+        localStorage.setItem(key, JSON.stringify(data));
+        this._renderSessions();
+      }
+
+      // 3. Notificação do Navegador (Desktop Notification)
+      const taskTitle = this._currentEvent?.name || 'sua tarefa';
+      const notificationTitle = this._mode === 'work' ? '🍅 Pomodoro Concluído!' : '⏰ Pausa Encerrada!';
+      const notificationBody = this._mode === 'work'
+        ? `Você completou o bloco de foco em "${taskTitle}". Hora da pausa!`
+        : 'Sua pausa terminou. Pronto para voltar ao foco?';
+
+      if (Notification?.permission === 'granted') {
+        new Notification(notificationTitle, { body: notificationBody });
+      } else if (Notification?.permission !== 'denied') {
+        Notification?.requestPermission();
+      }
+
+      // 4. EXIBIR O MODAL POP-UP
+      this.showCompleteModal();
+    },
+
+    showCompleteModal() {
+      const modal = document.getElementById('pomodoro-modal');
+      if (!modal) {
+        UI.showToast('🍅 Timer finalizado!', 'success');
+        return;
+      }
+
+      const icon = document.getElementById('pomodoro-modal-icon');
+      const tag = document.getElementById('pomodoro-modal-tag');
+      const title = document.getElementById('pomodoro-modal-title');
+      const message = document.getElementById('pomodoro-modal-message');
+      const actionBtn = document.getElementById('pomodoro-modal-action-btn');
+      const actionIcon = document.getElementById('pomodoro-modal-action-icon');
+      const actionText = document.getElementById('pomodoro-modal-action-text');
+      const closeBtn = document.getElementById('pomodoro-modal-close-btn');
+
+      const isWork = this._mode === 'work';
+      const taskName = this._currentEvent?.name ? `<strong>"${escapeHTML(this._currentEvent.name)}"</strong>` : 'sua tarefa';
+
+      if (isWork) {
+        if (icon) icon.textContent = '🍅';
+        if (tag) {
+          tag.textContent = 'Tempo Esgotado!';
+          tag.className = 'inline-block px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-300 mb-2';
+        }
+        if (title) title.textContent = 'Sessão de Foco Concluída!';
+        if (message) {
+          message.innerHTML = `Excelente trabalho! Você concluiu seus 25 minutos de foco em ${taskName}. Hora de descansar a mente!`;
+        }
+        if (actionIcon) actionIcon.className = 'fas fa-mug-hot';
+        if (actionText) actionText.textContent = 'Iniciar Pausa Curta (5 min)';
+        if (actionBtn) {
+          actionBtn.onclick = () => {
+            UI.closeModal('pomodoro-modal');
+            this.setMode('short');
+            this.iniciar();
+          };
+        }
+      } else {
+        if (icon) icon.textContent = '☕';
+        if (tag) {
+          tag.textContent = 'Pausa Finalizada!';
+          tag.className = 'inline-block px-3 py-1 rounded-full text-xs font-semibold bg-brand-500/20 text-brand-300 mb-2';
+        }
+        if (title) title.textContent = 'Hora de Voltar ao Foco!';
+        if (message) {
+          message.innerHTML = `Sua pausa terminou. Vamos continuar com o foco em ${taskName}?`;
+        }
+        if (actionIcon) actionIcon.className = 'fas fa-play';
+        if (actionText) actionText.textContent = 'Iniciar Foco (25 min)';
+        if (actionBtn) {
+          actionBtn.onclick = () => {
+            UI.closeModal('pomodoro-modal');
+            this.setMode('work');
+            this.iniciar();
+          };
+        }
+      }
+
+      if (closeBtn) {
+        closeBtn.onclick = () => UI.closeModal('pomodoro-modal');
+      }
+
+      UI.openModal('pomodoro-modal');
+    },
+
+    renderMiniPill() {
+      const pill = document.getElementById('pomodoro-mini-pill');
+      if (!pill) return;
+
+      const panelOpen = document.body.classList.contains('event-focus-open');
+      const shouldShow = (this._running || (this._remaining < this._total && this._remaining > 0)) && !panelOpen;
+
+      if (!shouldShow) {
+        pill.classList.add('hidden');
+        return;
+      }
+
+      pill.classList.remove('hidden');
+
+      const timeEl = document.getElementById('pomodoro-mini-time');
+      const labelEl = document.getElementById('pomodoro-mini-label');
+      const pauseIcon = document.getElementById('pomodoro-mini-pause-icon');
+
+      const m = Math.floor(this._remaining / 60);
+      const s = this._remaining % 60;
+      if (timeEl) {
+        timeEl.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        timeEl.classList.toggle('text-red-400', this._remaining <= 60 && this._remaining > 0);
+        timeEl.classList.toggle('text-white', this._remaining > 60 || this._remaining === 0);
+      }
+
+      if (labelEl) {
+        const modeLabel = this._mode === 'work' ? 'Foco' : (this._mode === 'short' ? 'Pausa' : 'Longa');
+        const taskName = this._currentEvent?.name ? ` · ${this._currentEvent.name}` : '';
+        labelEl.textContent = `${modeLabel}${taskName}`;
+      }
+
+      if (pauseIcon) {
+        pauseIcon.className = this._running ? 'fas fa-pause' : 'fas fa-play';
+      }
+    },
+
+    hideMiniPill() {
+      const pill = document.getElementById('pomodoro-mini-pill');
+      if (pill) pill.classList.add('hidden');
+    },
+
+    _render() {
+      const display = document.getElementById('pomodoro-display');
+      const progress = document.getElementById('pomodoro-progress');
+      const status = document.getElementById('pomodoro-status');
+      const icon = document.getElementById('pomodoro-start-icon');
+
+      if (display) {
+        const m = Math.floor(this._remaining / 60);
+        const s = this._remaining % 60;
+        display.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        display.classList.toggle('text-red-400', this._remaining <= 60 && this._remaining > 0);
+        display.classList.toggle('text-white', this._remaining > 60 || this._remaining === 0);
+      }
+      if (progress) {
+        const pct = this._total > 0 ? (this._remaining / this._total) * 100 : 100;
+        progress.style.width = `${pct}%`;
+        progress.classList.toggle('bg-brand-500', this._remaining > 60);
+        progress.classList.toggle('bg-red-500', this._remaining <= 60 && this._remaining > 0);
+        progress.classList.toggle('bg-green-500', this._remaining === 0);
+      }
+      if (status) {
+        if (this._remaining === 0) {
+          status.textContent = this._mode === 'work' ? '✅ Sessão concluída!' : '⏰ Pausa encerrada!';
+        } else if (this._running) {
+          status.textContent = this._mode === 'work' ? '🎯 Focando...' : '☕ Descansando...';
+        } else {
+          status.textContent = this._remaining === POMODORO_DURATIONS[this._mode] ? 'Pronto para começar' : '⏸ Pausado';
+        }
+      }
+      if (icon) {
+        icon.classList.toggle('fa-play', !this._running);
+        icon.classList.toggle('fa-pause', this._running);
+      }
+      this._updateModeButtons();
+      this._renderSessions();
+    },
+
+    _renderSessions() {
+      const el = document.getElementById('pomodoro-session-count');
+      if (!el) return;
+      const today = new Date().toISOString().slice(0, 10);
+      let data = {};
+      try { data = JSON.parse(localStorage.getItem(POMODORO_STORAGE_KEY) || '{}'); } catch {}
+      el.textContent = data[today] || 0;
+    }
+  };
+
   // Expor globalmente
   window.UI = UI;
+  window.Pomodoro = Pomodoro;
 })();

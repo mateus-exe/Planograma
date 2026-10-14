@@ -1,4 +1,4 @@
-// === Planograma - Módulo Principal ===
+﻿// === Planograma - Módulo Principal ===
 // Inicializa a aplicação e conecta todos os módulos
 
 (function () {
@@ -255,6 +255,10 @@
         Storage.onChange((area) => {
           if (['config', 'atividades', 'tarefas', 'all'].includes(area) && window.UI) {
             UI.atualizarCronogramaAutomaticamente();
+          } else if (area === 'postits' && window.UI) {
+            if (UI.getCurrentSection() === 'cronograma') {
+              UI.renderCronograma();
+            }
           }
         });
       }
@@ -298,32 +302,38 @@
      * Trata atalhos de teclado
      */
     handleKeyboardShortcuts(e) {
-      // Escape: fechar qualquer modal aberto
       if (e.key === 'Escape') {
         if (window.UI) {
           UI.closeEventFocus?.();
           UI.closeAllModals();
         }
+        return;
       }
 
-      // Ctrl+N: ir para adicionar tarefa
-      if (e.ctrlKey && e.key === 'n') {
+      // Ignorar atalhos se o usuário estiver digitando em campos de formulário
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+
+      // Alt+N: ir para adicionar tarefa
+      if (e.altKey && key === 'n') {
         e.preventDefault();
         window.location.hash = 'tarefas';
       }
 
-      // Ctrl+G: abrir o cronograma (gerado automaticamente)
-      if (e.ctrlKey && e.key === 'g') {
+      // Alt+G: abrir o cronograma
+      if (e.altKey && key === 'g') {
         e.preventDefault();
         window.location.hash = 'cronograma';
       }
 
-      // Ctrl+1 a 5: navegação rápida
-      if (e.ctrlKey && ['1', '2', '3', '4', '5'].includes(e.key)) {
+      // Alt+1 a 5: navegação rápida entre seções
+      if (e.altKey && ['1', '2', '3', '4', '5'].includes(key)) {
         e.preventDefault();
         const sections = ['dashboard', 'atividades-fixas', 'tarefas', 'cronograma', 'configuracoes'];
-        const idx = parseInt(e.key) - 1;
-        window.location.hash = sections[idx];
+        window.location.hash = sections[parseInt(key, 10) - 1];
       }
     },
 
